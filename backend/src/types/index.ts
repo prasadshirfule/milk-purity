@@ -86,6 +86,9 @@ export interface IMilkTest {
   milkLevel: number;
   qualityScore: number;
   classification: QualityClassification;
+  recommendedResult?: TestResult;
+  operatorDecision?: 'ACCEPT' | 'REJECT';
+  overrideReason?: string;
   prediction?: string;
   confidence?: number | null;
   warnings: string[];

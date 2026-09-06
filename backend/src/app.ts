@@ -15,10 +15,30 @@ import { ENV } from './config/environment';
 export const createApp = (): Application => {
   const app = express();
 
-  // Middleware
+  // CORS configuration
+  const defaultOrigins = [
+    ENV.FRONTEND_URL,
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'http://localhost:3000',
+    'http://localhost:5000'
+  ];
+  const configuredOrigins = ENV.ALLOWED_ORIGINS 
+    ? ENV.ALLOWED_ORIGINS.split(',').map((s: string) => s.trim()).filter(Boolean)
+    : [];
+  const allowedOrigins = Array.from(new Set([...defaultOrigins, ...configuredOrigins]));
+
   app.use(cors({
-    origin: '*',
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
+    origin: (origin, callback) => {
+      // Allow non-browser agents, local tools, or matched origins
+      if (!origin || allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(null, true);
+      }
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
   }));
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
@@ -27,7 +47,7 @@ export const createApp = (): Application => {
   app.get('/api/health', (req: Request, res: Response) => {
     res.json({
       status: 'healthy',
-      system: 'Milk Purity & Dairy Management API',
+      system: 'MILKGUARD — Smart Milk Quality & Dairy Management API',
       timestamp: new Date().toISOString(),
       demoMode: ENV.DEMO_MODE,
       version: '1.0.0'
@@ -42,6 +62,7 @@ export const createApp = (): Application => {
   app.use('/api/devices', deviceRoutes);
   app.use('/api/alerts', alertRoutes);
   app.use('/api/dashboard', dashboardRoutes);
+  app.use('/api/summary', dashboardRoutes); // convenience alias
   app.use('/api/ml', mlRoutes);
   app.use('/api/settings', settingRoutes);
 

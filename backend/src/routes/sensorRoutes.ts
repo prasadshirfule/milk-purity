@@ -4,6 +4,7 @@ import { receiveSensorReading, getLatestReading, simulateSensorTick } from '../c
 const router = Router();
 
 router.post('/readings', receiveSensorReading);
+router.post('/stream', receiveSensorReading);
 router.get('/latest', getLatestReading);
 router.get('/simulate', simulateSensorTick);
 

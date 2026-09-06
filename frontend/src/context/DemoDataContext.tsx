@@ -39,12 +39,24 @@ interface DemoDataContextType {
     deviceId: string;
     quantity: number;
     sensorReading: SensorReading;
+    operatorDecision?: 'ACCEPT' | 'REJECT';
+    overrideReason?: string;
     notes?: string;
   }) => { test: MilkTest; quality: QualityResult; collection?: MilkCollection };
   updateAlertStatus: (id: string, status: 'ACTIVE' | 'RESOLVED' | 'DISMISSED') => void;
   triggerDeviceAction: (deviceId: string, action: 'RESTART' | 'CALIBRATE' | 'CONNECT' | 'DISCONNECT') => void;
   refreshData: () => void;
 }
+
+const safeJsonParse = <T,>(key: string, fallback: T): T => {
+  try {
+    const saved = localStorage.getItem(key);
+    return saved ? JSON.parse(saved) : fallback;
+  } catch (e) {
+    console.warn(`Error parsing localStorage for ${key}, falling back to defaults`, e);
+    return fallback;
+  }
+};
 
 const DemoDataContext = createContext<DemoDataContextType | undefined>(undefined);
 
@@ -53,50 +65,51 @@ export const DemoDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const { showToast } = useToast();
 
   const [isDemoMode, setIsDemoMode] = useState<boolean>(true);
-  const [farmers, setFarmers] = useState<Farmer[]>(() => {
-    const saved = localStorage.getItem('milk_farmers');
-    return saved ? JSON.parse(saved) : INITIAL_FARMERS;
-  });
-
-  const [tests, setTests] = useState<MilkTest[]>(() => {
-    const saved = localStorage.getItem('milk_tests');
-    return saved ? JSON.parse(saved) : INITIAL_TESTS;
-  });
-
-  const [collections, setCollections] = useState<MilkCollection[]>(() => {
-    const saved = localStorage.getItem('milk_collections');
-    return saved ? JSON.parse(saved) : INITIAL_COLLECTIONS;
-  });
-
-  const [devices, setDevices] = useState<Device[]>(() => {
-    const saved = localStorage.getItem('milk_devices');
-    return saved ? JSON.parse(saved) : INITIAL_DEVICES;
-  });
-
-  const [alerts, setAlerts] = useState<Alert[]>(() => {
-    const saved = localStorage.getItem('milk_alerts');
-    return saved ? JSON.parse(saved) : INITIAL_ALERTS;
-  });
+  const [farmers, setFarmers] = useState<Farmer[]>(() => safeJsonParse('milk_farmers', INITIAL_FARMERS));
+  const [tests, setTests] = useState<MilkTest[]>(() => safeJsonParse('milk_tests', INITIAL_TESTS));
+  const [collections, setCollections] = useState<MilkCollection[]>(() => safeJsonParse('milk_collections', INITIAL_COLLECTIONS));
+  const [devices, setDevices] = useState<Device[]>(() => safeJsonParse('milk_devices', INITIAL_DEVICES));
+  const [alerts, setAlerts] = useState<Alert[]>(() => safeJsonParse('milk_alerts', INITIAL_ALERTS));
 
   // Keep local storage synchronized
   useEffect(() => {
-    localStorage.setItem('milk_farmers', JSON.stringify(farmers));
+    try {
+      localStorage.setItem('milk_farmers', JSON.stringify(farmers));
+    } catch (e) {
+      console.warn('Failed to save farmers to localStorage', e);
+    }
   }, [farmers]);
 
   useEffect(() => {
-    localStorage.setItem('milk_tests', JSON.stringify(tests));
+    try {
+      localStorage.setItem('milk_tests', JSON.stringify(tests));
+    } catch (e) {
+      console.warn('Failed to save tests to localStorage', e);
+    }
   }, [tests]);
 
   useEffect(() => {
-    localStorage.setItem('milk_collections', JSON.stringify(collections));
+    try {
+      localStorage.setItem('milk_collections', JSON.stringify(collections));
+    } catch (e) {
+      console.warn('Failed to save collections to localStorage', e);
+    }
   }, [collections]);
 
   useEffect(() => {
-    localStorage.setItem('milk_devices', JSON.stringify(devices));
+    try {
+      localStorage.setItem('milk_devices', JSON.stringify(devices));
+    } catch (e) {
+      console.warn('Failed to save devices to localStorage', e);
+    }
   }, [devices]);
 
   useEffect(() => {
-    localStorage.setItem('milk_alerts', JSON.stringify(alerts));
+    try {
+      localStorage.setItem('milk_alerts', JSON.stringify(alerts));
+    } catch (e) {
+      console.warn('Failed to save alerts to localStorage', e);
+    }
   }, [alerts]);
 
   // Compute live dynamic dashboard summary
@@ -187,6 +200,8 @@ export const DemoDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     deviceId,
     quantity,
     sensorReading,
+    operatorDecision,
+    overrideReason,
     notes
   }: {
     farmerId: string;
@@ -194,11 +209,37 @@ export const DemoDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     deviceId: string;
     quantity: number;
     sensorReading: SensorReading;
+    operatorDecision?: 'ACCEPT' | 'REJECT';
+    overrideReason?: string;
     notes?: string;
   }) => {
     const quality = QualityCalculator.calculate(sensorReading, settings.thresholds);
-    const ratePerLiter = QualityCalculator.calculateRate(sensorReading.fat, quality.score, settings.thresholds);
-    const totalAmount = quality.result !== 'REJECTED' ? Number((quantity * ratePerLiter).toFixed(2)) : 0;
+    const recommendedResult = quality.result; // 'ACCEPTED' | 'WARNING' | 'REJECTED'
+    const decision: 'ACCEPT' | 'REJECT' = operatorDecision === 'REJECT' ? 'REJECT' : 'ACCEPT';
+
+    let finalResult: 'ACCEPTED' | 'WARNING' | 'REJECTED' = 'REJECTED';
+    let ratePerLiter = 0;
+    let totalAmount = 0;
+
+    if (decision === 'REJECT') {
+      finalResult = 'REJECTED';
+      ratePerLiter = 0;
+      totalAmount = 0;
+    } else {
+      if (recommendedResult === 'REJECTED') {
+        finalResult = 'ACCEPTED';
+        ratePerLiter = QualityCalculator.calculateRate(sensorReading.fat, quality.score, settings.thresholds);
+        totalAmount = Number((quantity * ratePerLiter).toFixed(2));
+      } else if (recommendedResult === 'WARNING') {
+        finalResult = 'WARNING';
+        ratePerLiter = QualityCalculator.calculateRate(sensorReading.fat, quality.score, settings.thresholds);
+        totalAmount = Number((quantity * ratePerLiter).toFixed(2));
+      } else {
+        finalResult = 'ACCEPTED';
+        ratePerLiter = QualityCalculator.calculateRate(sensorReading.fat, quality.score, settings.thresholds);
+        totalAmount = Number((quantity * ratePerLiter).toFixed(2));
+      }
+    }
 
     const actualFarmerName = farmerName || farmers.find((f) => f.farmerId === farmerId)?.name || 'Farmer';
     const testId = `TEST-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(100 + Math.random() * 900)}`;
@@ -218,10 +259,13 @@ export const DemoDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       milkLevel: quantity,
       qualityScore: quality.score,
       classification: quality.classification,
-      prediction: quality.result === 'REJECTED' ? 'DEMO_ANOMALY' : 'DEMO_NORMAL',
+      recommendedResult,
+      operatorDecision: decision,
+      overrideReason,
+      prediction: finalResult === 'REJECTED' ? 'DEMO_ANOMALY' : 'DEMO_NORMAL',
       confidence: null,
       warnings: quality.warnings,
-      result: quality.result,
+      result: finalResult,
       ratePerLiter,
       totalAmount,
       notes
@@ -231,7 +275,7 @@ export const DemoDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     let createdCollection: MilkCollection | undefined;
 
-    // Record collection if accepted or warning
+    // Record collection and update farmer metrics ONLY if final result is NOT rejected
     if (newTest.result !== 'REJECTED') {
       createdCollection = {
         collectionId: `COL-${testId.replace('TEST-', '')}`,
@@ -270,8 +314,8 @@ export const DemoDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       );
     }
 
-    // Trigger alert if anomalous
-    if (newTest.result === 'REJECTED' || newTest.result === 'WARNING') {
+    // Trigger alert if anomalous or rejected
+    if (newTest.result === 'REJECTED' || newTest.result === 'WARNING' || decision === 'REJECT') {
       const newAlert: Alert = {
         alertId: `ALT-${Date.now()}`,
         type: sensorReading.conductivity > 6.0 ? 'HIGH_CONDUCTIVITY' : sensorReading.ph < 6.5 ? 'ABNORMAL_PH' : 'SUSPICIOUS_MILK',
@@ -280,7 +324,7 @@ export const DemoDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         farmerName: actualFarmerName,
         testId: newTest.testId,
         deviceId: newTest.deviceId,
-        message: `Batch ${newTest.testId} flagged: Score ${newTest.qualityScore}% (${newTest.result}). ${newTest.warnings.join(', ')}`,
+        message: `Batch ${newTest.testId} outcome: ${newTest.result} (Operator: ${decision}). Score ${newTest.qualityScore}%. ${newTest.warnings.join(', ')}`,
         status: 'ACTIVE',
         timestamp: new Date().toISOString()
       };

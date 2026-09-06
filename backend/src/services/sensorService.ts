@@ -18,42 +18,92 @@ class SensorService {
   }
 
   public validateReading(data: any): { valid: boolean; error?: string; reading?: ISensorReading } {
-    if (!data || typeof data !== 'object') {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
       return { valid: false, error: 'Payload must be a valid JSON object' };
     }
 
     const { deviceId, temperature, ph, fat, density, conductivity, milkLevel, timestamp } = data;
 
-    if (!deviceId || typeof deviceId !== 'string') {
-      return { valid: false, error: 'Missing or invalid deviceId' };
+    if (!deviceId || typeof deviceId !== 'string' || deviceId.trim() === '') {
+      return { valid: false, error: 'Missing or invalid deviceId: must be a non-empty string' };
     }
 
+    const isFiniteNumber = (val: any): boolean => {
+      if (typeof val === 'number') {
+        return Number.isFinite(val) && !isNaN(val);
+      }
+      if (typeof val === 'string') {
+        const trimmed = val.trim();
+        if (trimmed === '' || trimmed === 'Infinity' || trimmed === '-Infinity' || trimmed === 'NaN') return false;
+        const num = Number(trimmed);
+        return Number.isFinite(num) && !isNaN(num);
+      }
+      return false;
+    };
+
+    if (!isFiniteNumber(temperature)) {
+      return { valid: false, error: `Invalid temperature: must be a valid finite number` };
+    }
     const tempNum = Number(temperature);
-    const phNum = Number(ph);
-    const fatNum = Number(fat);
-    const densityNum = Number(density);
-    const condNum = Number(conductivity);
-    const levelNum = Number(milkLevel ?? 0);
+    if (tempNum < -10 || tempNum > 100) {
+      return { valid: false, error: `Invalid temperature range (${tempNum} °C): must be between -10 and 100 °C` };
+    }
 
-    if (isNaN(tempNum) || tempNum < -10 || tempNum > 100) {
-      return { valid: false, error: `Invalid temperature: ${temperature} °C` };
+    if (!isFiniteNumber(ph)) {
+      return { valid: false, error: `Invalid pH: must be a valid finite number` };
     }
-    if (isNaN(phNum) || phNum < 0 || phNum > 14) {
-      return { valid: false, error: `Invalid pH value: ${ph}` };
+    const phNum = Number(ph);
+    if (phNum < 0 || phNum > 14) {
+      return { valid: false, error: `Invalid pH value (${phNum}): must be between 0 and 14` };
     }
-    if (isNaN(fatNum) || fatNum < 0 || fatNum > 20) {
-      return { valid: false, error: `Invalid fat percentage: ${fat} %` };
+
+    if (!isFiniteNumber(fat)) {
+      return { valid: false, error: `Invalid fat percentage: must be a valid finite number` };
     }
-    if (isNaN(densityNum) || densityNum < 0.5 || densityNum > 2.0) {
-      return { valid: false, error: `Invalid density value: ${density} g/mL` };
+    const fatNum = Number(fat);
+    if (fatNum < 0 || fatNum > 20) {
+      return { valid: false, error: `Invalid fat percentage (${fatNum} %): must be between 0 and 20 %` };
     }
-    if (isNaN(condNum) || condNum < 0 || condNum > 50) {
-      return { valid: false, error: `Invalid conductivity: ${conductivity} mS/cm` };
+
+    if (!isFiniteNumber(density)) {
+      return { valid: false, error: `Invalid density: must be a valid finite number` };
+    }
+    const densityNum = Number(density);
+    if (densityNum < 0.5 || densityNum > 2.0) {
+      return { valid: false, error: `Invalid density value (${densityNum} g/mL): must be between 0.5 and 2.0 g/mL` };
+    }
+
+    if (!isFiniteNumber(conductivity)) {
+      return { valid: false, error: `Invalid conductivity: must be a valid finite number` };
+    }
+    const condNum = Number(conductivity);
+    if (condNum < 0 || condNum > 50) {
+      return { valid: false, error: `Invalid conductivity (${condNum} mS/cm): must be between 0 and 50 mS/cm` };
+    }
+
+    let levelNum = 0;
+    if (milkLevel !== undefined && milkLevel !== null) {
+      if (!isFiniteNumber(milkLevel)) {
+        return { valid: false, error: `Invalid milkLevel: must be a finite number` };
+      }
+      levelNum = Number(milkLevel);
+      if (levelNum < 0) {
+        return { valid: false, error: `Invalid milkLevel (${levelNum} L): cannot be negative` };
+      }
+    }
+
+    let parsedTimestamp = new Date().toISOString();
+    if (timestamp !== undefined && timestamp !== null) {
+      const parsed = new Date(timestamp);
+      if (isNaN(parsed.getTime())) {
+        return { valid: false, error: `Invalid timestamp format` };
+      }
+      parsedTimestamp = parsed.toISOString();
     }
 
     const reading: ISensorReading = {
-      deviceId,
-      timestamp: timestamp ? new Date(timestamp).toISOString() : new Date().toISOString(),
+      deviceId: deviceId.trim(),
+      timestamp: parsedTimestamp,
       temperature: Number(tempNum.toFixed(2)),
       ph: Number(phNum.toFixed(2)),
       fat: Number(fatNum.toFixed(2)),

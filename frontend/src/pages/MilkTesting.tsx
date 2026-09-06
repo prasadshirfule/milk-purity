@@ -26,6 +26,7 @@ import {
   Sparkles,
   CheckCircle2,
   XCircle,
+  AlertTriangle,
   Cpu,
   HelpCircle,
   Coins
@@ -38,6 +39,8 @@ export const MilkTesting: React.FC = () => {
 
   const [selectedFarmerId, setSelectedFarmerId] = useState<string>(farmers[0]?.farmerId || 'FMR-1001');
   const [isFarmerModalOpen, setIsFarmerModalOpen] = useState<boolean>(false);
+  const [overrideModalOpen, setOverrideModalOpen] = useState<boolean>(false);
+  const [overrideReason, setOverrideReason] = useState<string>('Secondary laboratory spot-check verified');
   const [testSuccessModal, setTestSuccessModal] = useState<any | null>(null);
 
   const {
@@ -65,7 +68,7 @@ export const MilkTesting: React.FC = () => {
   );
   const totalAmount = Number((quantity * currentRate).toFixed(2));
 
-  const handleDecision = (decision: 'ACCEPT' | 'REJECT') => {
+  const executeDecision = (decision: 'ACCEPT' | 'REJECT', reason?: string) => {
     if (!selectedFarmerId) {
       showToast('Please select a delivering farmer first', 'error');
       return;
@@ -77,14 +80,19 @@ export const MilkTesting: React.FC = () => {
 
     stopTest();
 
-    // If decision was manual override or standard outcome
     const result = addMilkTest({
       farmerId: selectedFarmerId,
       farmerName: selectedFarmer?.name,
       deviceId,
       quantity,
       sensorReading: reading,
-      notes: decision === 'REJECT' ? 'Rejected by dock operator.' : 'Accepted into primary bulk chilling tank.'
+      operatorDecision: decision,
+      overrideReason: reason,
+      notes: decision === 'REJECT' 
+        ? 'Rejected by dock operator.' 
+        : reason 
+        ? `Accepted under operator override: ${reason}` 
+        : 'Accepted into primary bulk storage.'
     });
 
     setTestSuccessModal({
@@ -93,6 +101,15 @@ export const MilkTesting: React.FC = () => {
       quality: result.quality,
       collection: result.collection
     });
+  };
+
+  const handleDecision = (decision: 'ACCEPT' | 'REJECT') => {
+    if (decision === 'ACCEPT' && qualityPreview.result === 'REJECTED') {
+      // Prompt for override reason
+      setOverrideModalOpen(true);
+      return;
+    }
+    executeDecision(decision);
   };
 
   return (
@@ -106,13 +123,13 @@ export const MilkTesting: React.FC = () => {
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-lg font-bold text-slate-900">Dock Testing Station Bay-A</h2>
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold uppercase tracking-wider">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                ESP32 CONNECTED
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-xs font-bold uppercase tracking-wider">
+                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                DEMO SENSOR DATA
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
-              Node: <strong className="text-slate-700 font-mono">ESP32-MILK-001</strong> • DS18B20 + BNC pH + EC Sensor Array Active
+              Simulated Node: <strong className="text-slate-700 font-mono">ESP32-MILK-001</strong> • Multi-Probe Telemetry Array
             </p>
           </div>
         </div>
@@ -126,7 +143,7 @@ export const MilkTesting: React.FC = () => {
               onClick={startTest}
               icon={<Play className="w-4 h-4" />}
             >
-              Start Live Sensor
+              Start Sensor Stream
             </Button>
           ) : (
             <Button
@@ -135,7 +152,7 @@ export const MilkTesting: React.FC = () => {
               onClick={stopTest}
               icon={<Square className="w-4 h-4" />}
             >
-              Stop Sampling
+              Stop Stream
             </Button>
           )}
           <Button
@@ -144,7 +161,7 @@ export const MilkTesting: React.FC = () => {
             onClick={tickReading}
             title="Single sample tick"
           >
-            Simulate Pulse
+            Sample Pulse
           </Button>
           <Button
             variant="ghost"
@@ -164,17 +181,17 @@ export const MilkTesting: React.FC = () => {
             <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
             <span className="font-bold text-slate-200">DEMO SENSOR PRESETS:</span>
             <span className="text-slate-400 hidden sm:inline">
-              Simulate distinct milk profiles to evaluate purity engine:
+              Simulate distinct parameter profiles to evaluate quality engine:
             </span>
           </div>
 
           <div className="flex flex-wrap items-center gap-1.5">
             {[
-              { id: 'NORMAL_COW', label: 'Pure Cow Milk (Grade A)' },
-              { id: 'BUFFALO_HIGH_FAT', label: 'Murrah Buffalo (6.4% Fat)' },
-              { id: 'WATER_DILUTED', label: 'Water Diluted (Dilution Anomaly)' },
-              { id: 'SOUR_ACIDIC', label: 'Sour / Acidic Milk' },
-              { id: 'HIGH_CONDUCTIVITY', label: 'Added Salts / Neutralizer' }
+              { id: 'NORMAL_COW', label: 'Normal Cow-Milk Simulation' },
+              { id: 'BUFFALO_HIGH_FAT', label: 'Buffalo Milk Simulation (6.4% Fat)' },
+              { id: 'WATER_DILUTED', label: 'Dilution Anomaly Simulation' },
+              { id: 'SOUR_ACIDIC', label: 'Acidic Milk Simulation' },
+              { id: 'HIGH_CONDUCTIVITY', label: 'High Conductivity Simulation' }
             ].map((p) => (
               <button
                 key={p.id}
@@ -365,12 +382,71 @@ export const MilkTesting: React.FC = () => {
         }}
       />
 
+      {/* Manual Override Confirmation Modal */}
+      {overrideModalOpen && (
+        <Modal
+          isOpen={overrideModalOpen}
+          onClose={() => setOverrideModalOpen(false)}
+          title="Manual Override — Accept Rejected Milk"
+          maxWidth="md"
+        >
+          <div className="space-y-4">
+            <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs space-y-1">
+              <span className="font-bold flex items-center gap-1.5 text-amber-800">
+                <AlertTriangle className="w-4 h-4 text-amber-600" />
+                Quality Recommendation is REJECT
+              </span>
+              <p className="text-amber-800/90 leading-relaxed">
+                The quality engine flagged one or more parameter anomalies on this batch. An override reason is required to log acceptance.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                Override Justification / Reason *
+              </label>
+              <select
+                value={overrideReason}
+                onChange={(e) => setOverrideReason(e.target.value)}
+                className="w-full rounded-xl bg-slate-50 border border-slate-200 px-3.5 py-2.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-dairy-500 mb-2 font-medium"
+              >
+                <option value="Secondary laboratory spot-check verified">Secondary laboratory spot-check verified</option>
+                <option value="Probe electrode recalibrated & sample re-tested">Probe electrode recalibrated & sample re-tested</option>
+                <option value="Managerial special batch acceptance">Managerial special batch acceptance</option>
+                <option value="Custom justification recorded below">Other (Specify in notes)</option>
+              </select>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <Button
+                variant="ghost"
+                size="md"
+                onClick={() => setOverrideModalOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                size="md"
+                className="bg-amber-600 hover:bg-amber-700 text-white shadow-amber-600/20"
+                onClick={() => {
+                  setOverrideModalOpen(false);
+                  executeDecision('ACCEPT', overrideReason);
+                }}
+              >
+                Confirm Override & Accept
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
       {/* Test Success / Recorded Modal */}
       {testSuccessModal && (
         <Modal
           isOpen={!!testSuccessModal}
           onClose={() => setTestSuccessModal(null)}
-          title={testSuccessModal.decision === 'ACCEPT' ? 'Milk Batch Accepted & Logged' : 'Milk Batch Rejected'}
+          title={testSuccessModal.decision === 'ACCEPT' ? 'Milk Batch Processed & Recorded' : 'Milk Batch Rejected'}
           maxWidth="md"
         >
           <div className="space-y-4 text-center">
@@ -397,10 +473,18 @@ export const MilkTesting: React.FC = () => {
                 <strong className="text-slate-800">{testSuccessModal.quality.classification} ({testSuccessModal.quality.score}%)</strong>
               </div>
               <div className="flex justify-between">
+                <span className="text-slate-500">Final Decision:</span>
+                <span className={`px-2 py-0.5 rounded font-bold text-[10px] uppercase ${
+                  testSuccessModal.decision === 'ACCEPT' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                }`}>
+                  {testSuccessModal.decision}
+                </span>
+              </div>
+              <div className="flex justify-between">
                 <span className="text-slate-500">Intake Volume:</span>
                 <strong className="text-slate-800">{testSuccessModal.test.quantity} Litres</strong>
               </div>
-              {testSuccessModal.decision === 'ACCEPT' && (
+              {testSuccessModal.decision === 'ACCEPT' ? (
                 <>
                   <div className="flex justify-between">
                     <span className="text-slate-500">Rate per Litre:</span>
@@ -411,6 +495,10 @@ export const MilkTesting: React.FC = () => {
                     <strong className="text-dairy-900 text-sm font-bold font-mono">₹{testSuccessModal.test.totalAmount?.toLocaleString()}</strong>
                   </div>
                 </>
+              ) : (
+                <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-[11px] text-center font-medium">
+                  Batch rejected by operator. Payout: ₹0. No collection ledger entry generated.
+                </div>
               )}
             </div>
 

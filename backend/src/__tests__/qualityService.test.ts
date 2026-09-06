@@ -170,4 +170,78 @@ describe('SensorService Payload Validation', () => {
     const result = sensorService.validateReading('invalid string');
     assert.strictEqual(result.valid, false);
   });
+
+  it('should reject NaN or Infinity in sensor values', () => {
+    const nanPayload = {
+      deviceId: 'ESP32-MILK-001',
+      temperature: NaN,
+      ph: 6.65,
+      fat: 4.2,
+      density: 1.029,
+      conductivity: 5.1
+    };
+    const res1 = sensorService.validateReading(nanPayload);
+    assert.strictEqual(res1.valid, false);
+    assert.ok(res1.error?.includes('temperature'));
+
+    const infPayload = {
+      deviceId: 'ESP32-MILK-001',
+      temperature: 25.0,
+      ph: 6.65,
+      fat: Infinity,
+      density: 1.029,
+      conductivity: 5.1
+    };
+    const res2 = sensorService.validateReading(infPayload);
+    assert.strictEqual(res2.valid, false);
+    assert.ok(res2.error?.includes('fat'));
+  });
+
+  it('should reject negative milk level/volume', () => {
+    const negativeVolumePayload = {
+      deviceId: 'ESP32-MILK-001',
+      temperature: 25.0,
+      ph: 6.65,
+      fat: 4.0,
+      density: 1.029,
+      conductivity: 5.1,
+      milkLevel: -10.5
+    };
+    const res = sensorService.validateReading(negativeVolumePayload);
+    assert.strictEqual(res.valid, false);
+    assert.ok(res.error?.includes('milkLevel'));
+  });
+
+  it('should reject invalid timestamp strings', () => {
+    const badTimestampPayload = {
+      deviceId: 'ESP32-MILK-001',
+      temperature: 25.0,
+      ph: 6.65,
+      fat: 4.0,
+      density: 1.029,
+      conductivity: 5.1,
+      timestamp: 'not-a-valid-date-string'
+    };
+    const res = sensorService.validateReading(badTimestampPayload);
+    assert.strictEqual(res.valid, false);
+    assert.ok(res.error?.includes('timestamp'));
+  });
+});
+
+describe('Workflow & Decision Logic Rules', () => {
+  it('should enforce that rejected batches yield 0 payout rate', () => {
+    const lowScorePrice = QualityService.calculatePricing(4.5, 40.0, DEFAULT_THRESHOLDS);
+    assert.strictEqual(lowScorePrice, 0);
+
+    const zeroScorePrice = QualityService.calculatePricing(4.5, 0, DEFAULT_THRESHOLDS);
+    assert.strictEqual(zeroScorePrice, 0);
+  });
+
+  it('should calculate correct payout when batch is accepted with warning', () => {
+    // Score 70 -> FAIR quality multiplier 0.90
+    // Base: 38.0 + (4.0 - 3.5)*3.5 = 38.0 + 1.75 = 39.75
+    // 39.75 * 0.90 = 35.775 -> 35.77
+    const price = QualityService.calculatePricing(4.0, 70.0, DEFAULT_THRESHOLDS);
+    assert.strictEqual(price, 35.77);
+  });
 });

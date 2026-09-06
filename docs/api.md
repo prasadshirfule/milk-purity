@@ -1,14 +1,36 @@
-# API Specification: Milk Purity System
+# MILKGUARD REST API Specifications
 
 Base URL: `http://localhost:5000/api`
 
+> **Notice & Scientific Disclaimer:**
+> **Demo/engineering assessment only. Not a certified laboratory assay.**
+> All quality scoring, parameter assessments, and ML prediction endpoints provide operational screening against configured reference thresholds.
+
 ---
 
-## 1. Farmers Endpoints
+## 1. System Health & Summary
+
+### `GET /health`
+Returns system status, operating mode, and timestamp.
+```json
+{
+  "status": "healthy",
+  "system": "MILKGUARD — Smart Milk Quality & Dairy Management API",
+  "timestamp": "2026-09-07T06:00:00.000Z",
+  "demoMode": true,
+  "version": "1.0.0"
+}
+```
+
+### `GET /dashboard/summary` (or `GET /summary`)
+Fetch high-level daily collection KPIs and device status.
+
+---
+
+## 2. Farmers Endpoints
 
 ### `GET /farmers`
-Fetch all registered farmers with optional search and filtering.
-- Query params: `search`, `animalType` (`COW|BUFFALO|MIXED|GOAT`), `status` (`ACTIVE|INACTIVE`)
+Fetch all registered farmers with optional query filters (`search`, `animalType`, `status`).
 
 ### `GET /farmers/:id`
 Fetch single farmer profile with testing history.
@@ -30,11 +52,11 @@ Register a new farmer.
 Update farmer details.
 
 ### `DELETE /farmers/:id`
-Deactivate or remove a farmer record.
+Remove a farmer record.
 
 ---
 
-## 2. Milk Testing Endpoints
+## 3. Milk Testing Endpoints
 
 ### `GET /tests`
 Fetch historical milk test records with filters (`farmerId`, `result`, `date`, `search`).
@@ -43,7 +65,7 @@ Fetch historical milk test records with filters (`farmerId`, `result`, `date`, `
 Get detailed breakdown of a single test by ID.
 
 ### `POST /tests`
-Execute a new milk test analysis. Automatically logs collection ledger entry and triggers alerts if anomalies are found.
+Process a new milk intake batch.
 ```json
 {
   "farmerId": "FMR-1001",
@@ -56,20 +78,44 @@ Execute a new milk test analysis. Automatically logs collection ledger entry and
   "density": 1.030,
   "conductivity": 4.9,
   "milkLevel": 35.0,
+  "operatorDecision": "ACCEPT",
+  "overrideReason": "",
   "notes": "Morning milk batch"
+}
+```
+**Response (201 Created):**
+```json
+{
+  "success": true,
+  "data": {
+    "testId": "TEST-20260907-842",
+    "farmerId": "FMR-1001",
+    "result": "ACCEPTED",
+    "recommendedResult": "ACCEPTED",
+    "operatorDecision": "ACCEPT",
+    "qualityScore": 96.4,
+    "classification": "EXCELLENT",
+    "ratePerLiter": 44.65,
+    "totalAmount": 1562.75
+  },
+  "collection": {
+    "collectionId": "COL-20260907-842",
+    "totalAmount": 1562.75,
+    "paymentStatus": "PAID"
+  }
 }
 ```
 
 ---
 
-## 3. IoT Sensor Telemetry Endpoints
+## 4. IoT Sensor Telemetry Endpoints
 
-### `POST /sensors/readings`
-Ingest real-time multi-sensor readings from ESP32.
+### `POST /sensors/readings` (or `POST /sensors/stream`)
+Ingest real-time multi-sensor readings from an ESP32 node.
 ```json
 {
   "deviceId": "ESP32-MILK-001",
-  "timestamp": "2026-09-07T06:30:00Z",
+  "timestamp": "2026-09-07T06:30:00.000Z",
   "temperature": 24.5,
   "ph": 6.64,
   "fat": 4.5,
@@ -80,46 +126,50 @@ Ingest real-time multi-sensor readings from ESP32.
 ```
 
 ### `GET /sensors/latest`
-Fetch current latest readings for a device.
+Fetch current latest readings for a device (`?deviceId=ESP32-MILK-001`).
 
 ### `GET /sensors/simulate`
-Generates a small Brownian micro-fluctuated reading for smooth UI simulation.
+Generates a small micro-fluctuated simulated reading for UI demo testing.
 
 ---
 
-## 4. Milk Collection Ledger Endpoints
+## 5. Milk Collection Ledger Endpoints
 
 ### `GET /collections`
 Fetch collection transactions with summary statistics (`totalVolume`, `totalAmount`, `averageFat`).
 
-### `POST /collections`
-Manual record creation for collection ledger.
-
 ---
 
-## 5. IoT Devices & Alerts
+## 6. IoT Devices & Alerts
 
 ### `GET /devices`
-List all registered IoT analyzer nodes and individual sensor health.
+List registered IoT nodes and probe health states.
 
-### `POST /devices/:id/heartbeat`
-Acknowledge node heartbeat.
+### `GET /devices/:id`
+Fetch single device details and probe health.
+
+### `POST /devices/:id/action`
+Send command to device (`{ "action": "RESTART" | "CALIBRATE" | "CONNECT" | "DISCONNECT" }`).
 
 ### `GET /alerts`
 List all active, resolved, or dismissed alerts.
 
-### `PUT /alerts/:id`
-Update alert status (`ACTIVE` | `RESOLVED` | `DISMISSED`).
+### `PUT /alerts/:id` (or `PATCH /alerts/:id`)
+Update alert status (`{ "status": "ACTIVE" | "RESOLVED" | "DISMISSED" }`).
 
 ---
 
-## 6. Dashboard & Analytics
+## 7. Dairy Configuration & Standards
 
-### `GET /dashboard/summary`
-Get high-level summary KPIs (today volume, tests count, accepted count, avg purity score, active farmers, device status).
+### `GET /settings`
+Read configured reference thresholds and pricing parameters.
 
-### `GET /dashboard/collection`
-Daily volume trend data for charts (`days=7` or `days=30`).
+### `PUT /settings`
+Update reference ranges (pH, fat, density, conductivity, temperature) and pricing rates (base rate, fat premium factor).
 
-### `GET /dashboard/quality`
-Average sensor parameters and quality classification distribution.
+---
+
+## 8. Machine Learning Proxy
+
+### `POST /ml/predict`
+Proxy sensor parameters to the FastAPI ML service for heuristic prediction.
