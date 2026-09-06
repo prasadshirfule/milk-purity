@@ -1,9 +1,10 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card } from '../common/Card';
 import { Button } from '../common/Button';
 import { StatusIndicator } from '../common/StatusIndicator';
 import { Device } from '../../types';
-import { Cpu, RefreshCw, Sliders, Wifi, WifiOff, CheckCircle2, XCircle } from 'lucide-react';
+import { Cpu, RefreshCw, Sliders, Wifi, WifiOff, CheckCircle2, XCircle, Eye } from 'lucide-react';
 
 export interface DeviceCardProps {
   device: Device;
@@ -11,6 +12,7 @@ export interface DeviceCardProps {
 }
 
 export const DeviceCard: React.FC<DeviceCardProps> = ({ device, onAction }) => {
+  const navigate = useNavigate();
   const isConnected = device.status === 'CONNECTED';
 
   const sensorKeys: { key: keyof typeof device.sensors; label: string }[] = [
@@ -92,43 +94,46 @@ export const DeviceCard: React.FC<DeviceCardProps> = ({ device, onAction }) => {
       </div>
 
       {/* Action Buttons */}
-      <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-end gap-2">
+      <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
         <Button
           variant="outline"
           size="sm"
-          onClick={() => onAction(device.deviceId, 'RESTART')}
-          icon={<RefreshCw className="w-3.5 h-3.5" />}
+          onClick={() => navigate(`/devices/${device.deviceId}`)}
+          icon={<Eye className="w-3.5 h-3.5" />}
         >
-          Restart
+          Node Telemetry
         </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => onAction(device.deviceId, 'CALIBRATE')}
-          icon={<Sliders className="w-3.5 h-3.5" />}
-        >
-          Calibrate
-        </Button>
-        {isConnected ? (
+
+        <div className="flex items-center gap-1.5">
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
-            onClick={() => onAction(device.deviceId, 'DISCONNECT')}
-            className="text-rose-600 hover:bg-rose-50"
-            icon={<WifiOff className="w-3.5 h-3.5" />}
+            onClick={() => onAction(device.deviceId, 'RESTART')}
+            icon={<RefreshCw className="w-3.5 h-3.5" />}
           >
-            Disconnect
+            Reboot
           </Button>
-        ) : (
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => onAction(device.deviceId, 'CONNECT')}
-            icon={<Wifi className="w-3.5 h-3.5" />}
-          >
-            Connect
-          </Button>
-        )}
+          {isConnected ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onAction(device.deviceId, 'DISCONNECT')}
+              className="text-rose-600 hover:bg-rose-50"
+              icon={<WifiOff className="w-3.5 h-3.5" />}
+            >
+              Disconnect
+            </Button>
+          ) : (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => onAction(device.deviceId, 'CONNECT')}
+              icon={<Wifi className="w-3.5 h-3.5" />}
+            >
+              Connect
+            </Button>
+          )}
+        </div>
       </div>
     </Card>
   );

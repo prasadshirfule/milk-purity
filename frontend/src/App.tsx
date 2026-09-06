@@ -15,6 +15,7 @@ import { FarmerDetails } from './pages/FarmerDetails';
 import { TestHistory } from './pages/TestHistory';
 import { Reports } from './pages/Reports';
 import { Devices } from './pages/Devices';
+import { DeviceDetails } from './pages/DeviceDetails';
 import { Alerts } from './pages/Alerts';
 import { Settings } from './pages/Settings';
 
@@ -54,6 +55,7 @@ export const App: React.FC = () => {
                   <Route path="/history" element={<TestHistory />} />
                   <Route path="/reports" element={<Reports />} />
                   <Route path="/devices" element={<Devices />} />
+                  <Route path="/devices/:id" element={<DeviceDetails />} />
                   <Route path="/alerts" element={<Alerts />} />
                   <Route path="/settings" element={<Settings />} />
                   <Route path="*" element={<Navigate to="/dashboard" replace />} />

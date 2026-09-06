@@ -6,6 +6,17 @@ export type AlertSeverity = 'INFO' | 'WARNING' | 'CRITICAL';
 export type AlertStatus = 'ACTIVE' | 'RESOLVED' | 'DISMISSED';
 export type DeviceStatus = 'CONNECTED' | 'DISCONNECTED' | 'ERROR' | 'OFFLINE';
 
+export type AlertType =
+  | 'HIGH_CONDUCTIVITY'
+  | 'ABNORMAL_PH'
+  | 'LOW_FAT'
+  | 'ABNORMAL_DENSITY'
+  | 'SENSOR_ERROR'
+  | 'DEVICE_OFFLINE'
+  | 'SUSPICIOUS_MILK'
+  | 'TEMPERATURE_DEVIATION'
+  | 'SYSTEM_NOTICE';
+
 export interface IFarmer {
   farmerId: string;
   name: string;
@@ -123,7 +134,7 @@ export interface IDevice {
 
 export interface IAlert {
   alertId: string;
-  type: 'HIGH_CONDUCTIVITY' | 'ABNORMAL_PH' | 'LOW_FAT' | 'DEVICE_OFFLINE' | 'SUSPICIOUS_MILK' | 'TEMPERATURE_DEVIATION' | 'SYSTEM_NOTICE';
+  type: AlertType;
   severity: AlertSeverity;
   farmerId?: string;
   farmerName?: string;

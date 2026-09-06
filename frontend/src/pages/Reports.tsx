@@ -5,7 +5,19 @@ import { ChartCard } from '../components/common/ChartCard';
 import { DataTable } from '../components/common/DataTable';
 import { Badge } from '../components/common/Badge';
 import { Button } from '../components/common/Button';
-import { Milk, BarChart3, Download, FileText, CheckCircle2, AlertTriangle, Printer } from 'lucide-react';
+import {
+  Milk,
+  BarChart3,
+  Download,
+  FileText,
+  CheckCircle2,
+  AlertTriangle,
+  Printer,
+  Calendar,
+  Cpu,
+  TrendingUp,
+  Activity
+} from 'lucide-react';
 import {
   BarChart,
   Bar,
@@ -16,16 +28,19 @@ import {
   ResponsiveContainer,
   Legend,
   LineChart,
-  Line
+  Line,
+  AreaChart,
+  Area
 } from 'recharts';
 import { useToast } from '../context/ToastContext';
 
+type ReportTab = 'daily' | 'monthly' | 'farmer' | 'quality' | 'rejection' | 'sensor';
+
 export const Reports: React.FC = () => {
-  const { tests, collections, farmers } = useDemoData();
+  const { tests, collections, farmers, devices } = useDemoData();
   const { showToast } = useToast();
 
-  const [activeTab, setActiveTab] = useState<'daily' | 'farmer' | 'quality' | 'rejection'>('daily');
-  const [dateRange, setDateRange] = useState<'7days' | '30days'>('7days');
+  const [activeTab, setActiveTab] = useState<ReportTab>('daily');
 
   // Daily report aggregate
   const dailyData = React.useMemo(() => {
@@ -40,6 +55,18 @@ export const Reports: React.FC = () => {
     ];
   }, []);
 
+  // Monthly breakdown aggregate
+  const monthlyData = React.useMemo(() => {
+    return [
+      { month: 'Apr 2026', volume: 34200, payout: 1380000, avgFat: 4.4, avgScore: 93.1 },
+      { month: 'May 2026', volume: 36800, payout: 1490000, avgFat: 4.5, avgScore: 94.0 },
+      { month: 'Jun 2026', volume: 38900, payout: 1580000, avgFat: 4.6, avgScore: 93.8 },
+      { month: 'Jul 2026', volume: 41200, payout: 1675000, avgFat: 4.5, avgScore: 94.6 },
+      { month: 'Aug 2026', volume: 43500, payout: 1765000, avgFat: 4.6, avgScore: 95.2 },
+      { month: 'Sep 2026 (MTD)', volume: 8680, payout: 353400, avgFat: 4.6, avgScore: 94.8 }
+    ];
+  }, []);
+
   // Farmer performance aggregate
   const farmerData = React.useMemo(() => {
     return farmers.map((f) => {
@@ -49,6 +76,7 @@ export const Reports: React.FC = () => {
         farmerId: f.farmerId,
         name: f.name,
         village: f.village,
+        animalType: f.animalType,
         totalLiters: f.totalMilkSupplied || 0,
         testsCount: fTests.length || f.totalCollections || 0,
         passRate: fTests.length > 0 ? Math.round((pass / fTests.length) * 100) : 95,
@@ -60,6 +88,22 @@ export const Reports: React.FC = () => {
   // Rejection Audit records
   const rejections = tests.filter((t) => t.result === 'REJECTED' || t.result === 'WARNING');
 
+  // Sensor node audit
+  const sensorAudit = devices.map((d) => {
+    const dTests = tests.filter((t) => t.deviceId === d.deviceId);
+    const activeSensorsCount = Object.values(d.sensors).filter(Boolean).length;
+    return {
+      deviceId: d.deviceId,
+      name: d.name,
+      status: d.status,
+      location: d.location || 'Dock',
+      firmware: d.firmwareVersion,
+      testsConducted: dTests.length || 12,
+      sensorHealth: `${activeSensorsCount} / 6 Probes OK`,
+      lastSeen: d.lastSeen
+    };
+  });
+
   const handleExportCSV = () => {
     let headers = '';
     let rows: string[] = [];
@@ -67,9 +111,15 @@ export const Reports: React.FC = () => {
     if (activeTab === 'daily') {
       headers = 'Date,Intake Volume (L),Total Payout (INR),Avg Fat (%),Pass Rate (%)';
       rows = dailyData.map((d) => `"${d.date}",${d.volume},${d.payout},${d.avgFat},${d.passRate}`);
+    } else if (activeTab === 'monthly') {
+      headers = 'Month,Total Volume (L),Total Payout (INR),Avg Fat (%),Avg Quality Score (%)';
+      rows = monthlyData.map((m) => `"${m.month}",${m.volume},${m.payout},${m.avgFat},${m.avgScore}`);
     } else if (activeTab === 'farmer') {
-      headers = 'Farmer ID,Farmer Name,Village,Total Litres,Tests Count,Pass Rate (%),Avg Quality Score (%)';
-      rows = farmerData.map((f) => `"${f.farmerId}","${f.name}","${f.village}",${f.totalLiters},${f.testsCount},${f.passRate},${f.avgScore}`);
+      headers = 'Farmer ID,Farmer Name,Village,Animal Type,Total Litres,Tests Count,Pass Rate (%),Avg Quality Score (%)';
+      rows = farmerData.map((f) => `"${f.farmerId}","${f.name}","${f.village}","${f.animalType}",${f.totalLiters},${f.testsCount},${f.passRate},${f.avgScore}`);
+    } else if (activeTab === 'sensor') {
+      headers = 'Device ID,Name,Status,Location,Firmware,Tests Conducted,Probe Health';
+      rows = sensorAudit.map((s) => `"${s.deviceId}","${s.name}","${s.status}","${s.location}","${s.firmware}",${s.testsConducted},"${s.sensorHealth}"`);
     } else {
       headers = 'Test ID,Farmer ID,Farmer Name,Volume (L),Fat (%),pH,Score (%),Result,Warnings';
       rows = rejections.map((r) => `"${r.testId}","${r.farmerId}","${r.farmerName}",${r.quantity},${r.fat},${r.ph},${r.qualityScore},"${r.result}","${r.warnings.join(' | ')}"`);
@@ -96,7 +146,7 @@ export const Reports: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">
-            Quality Analytics & Dairy Management Reports
+            Quality Analytics & Dairy Operations Reports
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
             Operational summaries, farmer performance audits, and rejection compliance reports
@@ -123,21 +173,23 @@ export const Reports: React.FC = () => {
         </div>
       </div>
 
-      {/* Report Type Selector Tabs */}
+      {/* 6 Report Type Selector Tabs */}
       <div className="flex rounded-2xl bg-white p-1.5 border border-slate-200/80 text-xs font-semibold text-slate-600 overflow-x-auto shadow-sm">
         {[
-          { id: 'daily', label: 'Daily Collection Summary', icon: Milk },
-          { id: 'farmer', label: 'Farmer-Wise Performance', icon: FileText },
-          { id: 'quality', label: 'Quality & Parameter Diagnostics', icon: BarChart3 },
-          { id: 'rejection', label: 'Rejection & Anomaly Log', icon: AlertTriangle }
+          { id: 'daily', label: '1. Daily Collection', icon: Milk },
+          { id: 'monthly', label: '2. Monthly Summary', icon: Calendar },
+          { id: 'farmer', label: '3. Farmer Performance', icon: FileText },
+          { id: 'quality', label: '4. Parameter Diagnostics', icon: BarChart3 },
+          { id: 'rejection', label: '5. Rejection Log', icon: AlertTriangle },
+          { id: 'sensor', label: '6. IoT Sensor Telemetry', icon: Cpu }
         ].map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
           return (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all whitespace-nowrap cursor-pointer ${
+              onClick={() => setActiveTab(tab.id as ReportTab)}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl transition-all whitespace-nowrap cursor-pointer ${
                 isActive
                   ? 'bg-dairy-600 text-white font-bold shadow-sm shadow-dairy-600/30'
                   : 'hover:text-slate-900 hover:bg-slate-50'
@@ -150,14 +202,14 @@ export const Reports: React.FC = () => {
         })}
       </div>
 
-      {/* Tab Content 1: Daily Collection */}
+      {/* Tab 1: Daily Collection */}
       {activeTab === 'daily' && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <StatCard
               title="7-Day Volume Intake"
               value="8,680 L"
-              subtitle="Daily avg: 1,240 L"
+              subtitle="Daily average: 1,240 L"
               icon={<Milk className="w-5 h-5" />}
               iconBg="bg-dairy-50 text-dairy-600"
             />
@@ -171,7 +223,7 @@ export const Reports: React.FC = () => {
             <StatCard
               title="Average Intake Pass Rate"
               value="97.4%"
-              badge={<Badge variant="success" size="sm">Grade A Target Met</Badge>}
+              badge={<Badge variant="success" size="sm">Target Met</Badge>}
               icon={<CheckCircle2 className="w-5 h-5" />}
               iconBg="bg-sky-50 text-sky-600"
             />
@@ -203,7 +255,65 @@ export const Reports: React.FC = () => {
         </div>
       )}
 
-      {/* Tab Content 2: Farmer-Wise Performance */}
+      {/* Tab 2: Monthly Summary */}
+      {activeTab === 'monthly' && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <StatCard
+              title="FY 2026 Cumulative Volume"
+              value="2,03,280 L"
+              subtitle="Across 6 collection months"
+              icon={<TrendingUp className="w-5 h-5" />}
+              iconBg="bg-dairy-50 text-dairy-600"
+            />
+            <StatCard
+              title="Cumulative Payout Disbursed"
+              value="₹82,43,400"
+              subtitle="Direct bank transfer settlements"
+              icon={<FileText className="w-5 h-5" />}
+              iconBg="bg-emerald-50 text-emerald-600"
+            />
+            <StatCard
+              title="Monthly Growth Average"
+              value="+7.2%"
+              badge={<Badge variant="success" size="sm">Positive</Badge>}
+              icon={<CheckCircle2 className="w-5 h-5" />}
+              iconBg="bg-sky-50 text-sky-600"
+            />
+          </div>
+
+          <ChartCard
+            title="Monthly Milk Volume Inflow Trend"
+            subtitle="Historical volume trajectory in liters"
+          >
+            <ResponsiveContainer width="100%" height={260}>
+              <AreaChart data={monthlyData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="monthlyVolume" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#0d9488" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#0d9488" stopOpacity={0.0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                <XAxis dataKey="month" stroke="#94a3b8" fontSize={11} tickLine={false} />
+                <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#0f172a',
+                    borderRadius: '12px',
+                    color: '#fff',
+                    fontSize: '12px',
+                    border: 'none'
+                  }}
+                />
+                <Area type="monotone" dataKey="volume" name="Volume (L)" stroke="#0d9488" strokeWidth={2.5} fill="url(#monthlyVolume)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </ChartCard>
+        </div>
+      )}
+
+      {/* Tab 3: Farmer Performance */}
       {activeTab === 'farmer' && (
         <div className="space-y-4">
           <DataTable
@@ -221,6 +331,10 @@ export const Reports: React.FC = () => {
               {
                 header: 'Village',
                 accessor: (f) => <span className="text-slate-600">{f.village}</span>
+              },
+              {
+                header: 'Herd Type',
+                accessor: (f) => <Badge variant="primary" size="sm">{f.animalType}</Badge>
               },
               {
                 header: 'Total Supplied',
@@ -243,7 +357,7 @@ export const Reports: React.FC = () => {
         </div>
       )}
 
-      {/* Tab Content 3: Quality & Diagnostics */}
+      {/* Tab 4: Quality & Parameter Diagnostics */}
       {activeTab === 'quality' && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -308,7 +422,7 @@ export const Reports: React.FC = () => {
         </div>
       )}
 
-      {/* Tab Content 4: Rejection & Anomaly Log */}
+      {/* Tab 5: Rejection & Anomaly Log */}
       {activeTab === 'rejection' && (
         <div className="space-y-4">
           <DataTable
@@ -351,6 +465,50 @@ export const Reports: React.FC = () => {
                     {r.warnings.join(' • ') || 'Manual operator rejection'}
                   </span>
                 )
+              }
+            ]}
+          />
+        </div>
+      )}
+
+      {/* Tab 6: IoT Sensor Telemetry Report */}
+      {activeTab === 'sensor' && (
+        <div className="space-y-4">
+          <DataTable
+            data={sensorAudit}
+            keyExtractor={(s) => s.deviceId}
+            columns={[
+              {
+                header: 'Device ID',
+                accessor: (s) => <span className="font-mono font-bold text-slate-800">{s.deviceId}</span>
+              },
+              {
+                header: 'Device Node Name',
+                accessor: (s) => <span className="font-bold text-slate-900">{s.name}</span>
+              },
+              {
+                header: 'Status',
+                accessor: (s) => (
+                  <Badge variant={s.status === 'CONNECTED' ? 'success' : 'danger'} size="sm">
+                    {s.status}
+                  </Badge>
+                )
+              },
+              {
+                header: 'Location Bay',
+                accessor: (s) => <span className="text-slate-600 text-xs">{s.location}</span>
+              },
+              {
+                header: 'Firmware',
+                accessor: (s) => <span className="font-mono text-xs">{s.firmware}</span>
+              },
+              {
+                header: 'Tests Logged',
+                accessor: (s) => <span className="font-mono font-bold">{s.testsConducted}</span>
+              },
+              {
+                header: 'Probe Health Status',
+                accessor: (s) => <span className="font-semibold text-emerald-700 text-xs">{s.sensorHealth}</span>
               }
             ]}
           />

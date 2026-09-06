@@ -12,6 +12,8 @@ const AlertSchema = new Schema<IAlertDocument>(
         'HIGH_CONDUCTIVITY',
         'ABNORMAL_PH',
         'LOW_FAT',
+        'ABNORMAL_DENSITY',
+        'SENSOR_ERROR',
         'DEVICE_OFFLINE',
         'SUSPICIOUS_MILK',
         'TEMPERATURE_DEVIATION',

@@ -42,11 +42,11 @@ export const INITIAL_FARMERS: Farmer[] = [
     animalType: 'BUFFALO',
     notes: 'Premium high-fat Murrah buffalo milk supplier. Consistent morning delivery.',
     status: 'ACTIVE',
-    totalMilkSupplied: 1480.5,
-    totalCollections: 32,
-    averageQualityScore: 94.2,
+    totalMilkSupplied: 1880.5,
+    totalCollections: 42,
+    averageQualityScore: 95.2,
     createdAt: '2026-08-01T08:00:00Z',
-    updatedAt: '2026-09-06T18:00:00Z'
+    updatedAt: '2026-09-07T06:15:00Z'
   },
   {
     farmerId: 'FMR-1002',
@@ -57,11 +57,11 @@ export const INITIAL_FARMERS: Farmer[] = [
     animalType: 'COW',
     notes: 'Holstein-Friesian crossbred herd. High volume yield.',
     status: 'ACTIVE',
-    totalMilkSupplied: 2350.0,
-    totalCollections: 45,
-    averageQualityScore: 91.8,
+    totalMilkSupplied: 2850.0,
+    totalCollections: 56,
+    averageQualityScore: 92.4,
     createdAt: '2026-08-05T09:00:00Z',
-    updatedAt: '2026-09-06T18:30:00Z'
+    updatedAt: '2026-09-07T06:30:00Z'
   },
   {
     farmerId: 'FMR-1003',
@@ -72,11 +72,11 @@ export const INITIAL_FARMERS: Farmer[] = [
     animalType: 'COW',
     notes: 'Indigenous Gir cow milk with A2 beta-casein certification.',
     status: 'ACTIVE',
-    totalMilkSupplied: 890.0,
-    totalCollections: 28,
-    averageQualityScore: 96.5,
+    totalMilkSupplied: 1240.0,
+    totalCollections: 38,
+    averageQualityScore: 97.1,
     createdAt: '2026-08-10T07:30:00Z',
-    updatedAt: '2026-09-06T19:00:00Z'
+    updatedAt: '2026-09-07T06:45:00Z'
   },
   {
     farmerId: 'FMR-1004',
@@ -87,11 +87,11 @@ export const INITIAL_FARMERS: Farmer[] = [
     animalType: 'MIXED',
     notes: 'Mixed dairy operation with 8 cows and 6 buffaloes.',
     status: 'ACTIVE',
-    totalMilkSupplied: 1920.0,
-    totalCollections: 36,
-    averageQualityScore: 88.4,
+    totalMilkSupplied: 2320.0,
+    totalCollections: 46,
+    averageQualityScore: 88.8,
     createdAt: '2026-08-12T06:45:00Z',
-    updatedAt: '2026-09-06T19:15:00Z'
+    updatedAt: '2026-09-07T07:35:00Z'
   },
   {
     farmerId: 'FMR-1005',
@@ -102,11 +102,11 @@ export const INITIAL_FARMERS: Farmer[] = [
     animalType: 'COW',
     notes: 'Flagged once on 02-Sep for high conductivity (water dilution suspected).',
     status: 'ACTIVE',
-    totalMilkSupplied: 1120.0,
-    totalCollections: 24,
-    averageQualityScore: 78.6,
+    totalMilkSupplied: 1420.0,
+    totalCollections: 32,
+    averageQualityScore: 81.2,
     createdAt: '2026-08-15T08:15:00Z',
-    updatedAt: '2026-09-06T19:30:00Z'
+    updatedAt: '2026-09-07T07:10:00Z'
   },
   {
     farmerId: 'FMR-1006',
@@ -117,11 +117,11 @@ export const INITIAL_FARMERS: Farmer[] = [
     animalType: 'BUFFALO',
     notes: 'Pure Jaffarabadi buffaloes, excellent fat test results (> 6.2%).',
     status: 'ACTIVE',
-    totalMilkSupplied: 1640.0,
-    totalCollections: 30,
-    averageQualityScore: 95.0,
+    totalMilkSupplied: 2040.0,
+    totalCollections: 40,
+    averageQualityScore: 96.0,
     createdAt: '2026-08-18T07:00:00Z',
-    updatedAt: '2026-09-06T19:45:00Z'
+    updatedAt: '2026-09-06T06:30:00Z'
   },
   {
     farmerId: 'FMR-1007',
@@ -132,11 +132,11 @@ export const INITIAL_FARMERS: Farmer[] = [
     animalType: 'COW',
     notes: 'Registered cooperative member.',
     status: 'ACTIVE',
-    totalMilkSupplied: 980.0,
-    totalCollections: 22,
-    averageQualityScore: 89.7,
+    totalMilkSupplied: 1280.0,
+    totalCollections: 30,
+    averageQualityScore: 90.2,
     createdAt: '2026-08-20T08:00:00Z',
-    updatedAt: '2026-09-06T20:00:00Z'
+    updatedAt: '2026-09-06T06:50:00Z'
   },
   {
     farmerId: 'FMR-1008',
@@ -147,11 +147,11 @@ export const INITIAL_FARMERS: Farmer[] = [
     animalType: 'BUFFALO',
     notes: 'Regular evening batch supplier.',
     status: 'ACTIVE',
-    totalMilkSupplied: 1350.0,
-    totalCollections: 27,
-    averageQualityScore: 93.1,
+    totalMilkSupplied: 1750.0,
+    totalCollections: 36,
+    averageQualityScore: 93.8,
     createdAt: '2026-08-22T08:30:00Z',
-    updatedAt: '2026-09-06T20:15:00Z'
+    updatedAt: '2026-09-06T07:15:00Z'
   },
   {
     farmerId: 'FMR-1009',
@@ -162,11 +162,11 @@ export const INITIAL_FARMERS: Farmer[] = [
     animalType: 'MIXED',
     notes: 'Automated milking parlor installation in progress.',
     status: 'ACTIVE',
-    totalMilkSupplied: 1780.0,
-    totalCollections: 31,
-    averageQualityScore: 90.5,
+    totalMilkSupplied: 2180.0,
+    totalCollections: 41,
+    averageQualityScore: 91.5,
     createdAt: '2026-08-25T07:45:00Z',
-    updatedAt: '2026-09-06T20:30:00Z'
+    updatedAt: '2026-09-06T07:40:00Z'
   },
   {
     farmerId: 'FMR-1010',
@@ -177,11 +177,11 @@ export const INITIAL_FARMERS: Farmer[] = [
     animalType: 'COW',
     notes: 'Jersey cow specialist. Clean hygienic stainless steel containers used.',
     status: 'ACTIVE',
-    totalMilkSupplied: 840.0,
-    totalCollections: 19,
-    averageQualityScore: 94.8,
+    totalMilkSupplied: 1140.0,
+    totalCollections: 28,
+    averageQualityScore: 95.1,
     createdAt: '2026-08-28T09:00:00Z',
-    updatedAt: '2026-09-06T20:45:00Z'
+    updatedAt: '2026-09-06T08:10:00Z'
   },
   {
     farmerId: 'FMR-1011',
@@ -207,15 +207,76 @@ export const INITIAL_FARMERS: Farmer[] = [
     animalType: 'GOAT',
     notes: 'Caprine goat milk specialty line for hypoallergenic products.',
     status: 'ACTIVE',
-    totalMilkSupplied: 320.0,
-    totalCollections: 15,
-    averageQualityScore: 92.0,
+    totalMilkSupplied: 520.0,
+    totalCollections: 24,
+    averageQualityScore: 92.8,
     createdAt: '2026-08-15T08:00:00Z',
-    updatedAt: '2026-09-06T21:00:00Z'
+    updatedAt: '2026-09-06T18:00:00Z'
+  },
+  {
+    farmerId: 'FMR-1013',
+    name: 'Nitin Sonawane',
+    mobile: '+91 98222 33411',
+    village: 'Khed Shivapur',
+    address: 'Sonawane Dairy, Farm Road 2',
+    animalType: 'COW',
+    notes: 'High-tech automated chilling can delivery.',
+    status: 'ACTIVE',
+    totalMilkSupplied: 1650.0,
+    totalCollections: 34,
+    averageQualityScore: 93.5,
+    createdAt: '2026-08-20T08:00:00Z',
+    updatedAt: '2026-09-07T08:00:00Z'
+  },
+  {
+    farmerId: 'FMR-1014',
+    name: 'Lata Jagannath Salunkhe',
+    mobile: '+91 98904 55622',
+    village: 'Saswad Rural',
+    address: 'Salunkhewadi, House 12',
+    animalType: 'BUFFALO',
+    notes: 'Mehsana breed buffaloes, consistent morning delivery.',
+    status: 'ACTIVE',
+    totalMilkSupplied: 1420.0,
+    totalCollections: 29,
+    averageQualityScore: 94.7,
+    createdAt: '2026-08-22T08:00:00Z',
+    updatedAt: '2026-09-07T08:20:00Z'
+  },
+  {
+    farmerId: 'FMR-1015',
+    name: 'Govind Sawant',
+    mobile: '+91 97633 44100',
+    village: 'Bhor Valley',
+    address: 'Sawantwadi, Plot 54',
+    animalType: 'COW',
+    notes: 'Sahiwal indigenous cattle breed specialist.',
+    status: 'ACTIVE',
+    totalMilkSupplied: 980.0,
+    totalCollections: 22,
+    averageQualityScore: 96.2,
+    createdAt: '2026-08-26T08:00:00Z',
+    updatedAt: '2026-09-07T08:45:00Z'
+  },
+  {
+    farmerId: 'FMR-1016',
+    name: 'Vijay Raskar',
+    mobile: '+91 98501 88992',
+    village: 'Purandar Hills',
+    address: 'Raskar Vasti, Near Primary School',
+    animalType: 'MIXED',
+    notes: 'New member registered in September batch.',
+    status: 'ACTIVE',
+    totalMilkSupplied: 680.0,
+    totalCollections: 16,
+    averageQualityScore: 91.0,
+    createdAt: '2026-09-01T08:00:00Z',
+    updatedAt: '2026-09-06T17:30:00Z'
   }
 ];
 
 export const INITIAL_TESTS: MilkTest[] = [
+  // 07-Sep Tests (Today)
   {
     testId: 'TEST-20260907-001',
     farmerId: 'FMR-1001',
@@ -336,12 +397,80 @@ export const INITIAL_TESTS: MilkTest[] = [
     notes: 'Accepted under cautionary warning for fat improvement.'
   },
   {
-    testId: 'TEST-20260906-020',
+    testId: 'TEST-20260907-006',
+    farmerId: 'FMR-1013',
+    farmerName: 'Nitin Sonawane',
+    deviceId: 'ESP32-MILK-001',
+    quantity: 52.0,
+    timestamp: '2026-09-07T08:00:00Z',
+    temperature: 24.1,
+    ph: 6.65,
+    fat: 4.4,
+    density: 1.029,
+    conductivity: 5.0,
+    milkLevel: 52.0,
+    qualityScore: 93.0,
+    classification: 'EXCELLENT',
+    prediction: 'PURE',
+    confidence: 0.96,
+    warnings: [],
+    result: 'ACCEPTED',
+    ratePerLiter: 41.15,
+    totalAmount: 2139.80
+  },
+  {
+    testId: 'TEST-20260907-007',
+    farmerId: 'FMR-1014',
+    farmerName: 'Lata Jagannath Salunkhe',
+    deviceId: 'ESP32-MILK-001',
+    quantity: 45.0,
+    timestamp: '2026-09-07T08:20:00Z',
+    temperature: 23.9,
+    ph: 6.66,
+    fat: 6.0,
+    density: 1.031,
+    conductivity: 4.8,
+    milkLevel: 45.0,
+    qualityScore: 95.8,
+    classification: 'EXCELLENT',
+    prediction: 'PURE',
+    confidence: 0.97,
+    warnings: [],
+    result: 'ACCEPTED',
+    ratePerLiter: 46.75,
+    totalAmount: 2103.75
+  },
+  {
+    testId: 'TEST-20260907-008',
+    farmerId: 'FMR-1015',
+    farmerName: 'Govind Sawant',
+    deviceId: 'ESP32-MILK-001',
+    quantity: 32.0,
+    timestamp: '2026-09-07T08:45:00Z',
+    temperature: 24.3,
+    ph: 6.63,
+    fat: 4.7,
+    density: 1.030,
+    conductivity: 4.9,
+    milkLevel: 32.0,
+    qualityScore: 96.2,
+    classification: 'EXCELLENT',
+    prediction: 'PURE',
+    confidence: 0.98,
+    warnings: [],
+    result: 'ACCEPTED',
+    ratePerLiter: 42.20,
+    totalAmount: 1350.40
+  },
+
+  // 06-Sep Tests
+  {
+    testId: 'TEST-20260906-001',
     farmerId: 'FMR-1006',
     farmerName: 'Sunita Chavan',
     deviceId: 'ESP32-MILK-001',
     quantity: 55.0,
-    timestamp: '2026-09-06T17:40:00Z',
+    timestamp: '2026-09-06T06:30:00Z',
     temperature: 23.5,
     ph: 6.65,
     fat: 6.4,
@@ -358,12 +487,12 @@ export const INITIAL_TESTS: MilkTest[] = [
     totalAmount: 2648.25
   },
   {
-    testId: 'TEST-20260906-021',
+    testId: 'TEST-20260906-002',
     farmerId: 'FMR-1007',
     farmerName: 'Dnyaneshwar More',
     deviceId: 'ESP32-MILK-001',
     quantity: 38.0,
-    timestamp: '2026-09-06T18:00:00Z',
+    timestamp: '2026-09-06T06:50:00Z',
     temperature: 24.8,
     ph: 6.60,
     fat: 4.0,
@@ -380,12 +509,12 @@ export const INITIAL_TESTS: MilkTest[] = [
     totalAmount: 1510.50
   },
   {
-    testId: 'TEST-20260906-022',
+    testId: 'TEST-20260906-003',
     farmerId: 'FMR-1008',
     farmerName: 'Tukaram Jadhav',
     deviceId: 'ESP32-MILK-001',
     quantity: 48.0,
-    timestamp: '2026-09-06T18:25:00Z',
+    timestamp: '2026-09-06T07:15:00Z',
     temperature: 23.9,
     ph: 6.63,
     fat: 5.8,
@@ -402,12 +531,12 @@ export const INITIAL_TESTS: MilkTest[] = [
     totalAmount: 2210.40
   },
   {
-    testId: 'TEST-20260906-023',
+    testId: 'TEST-20260906-004',
     farmerId: 'FMR-1009',
     farmerName: 'Balasaheb Thorat',
     deviceId: 'ESP32-MILK-002',
     quantity: 60.0,
-    timestamp: '2026-09-06T18:50:00Z',
+    timestamp: '2026-09-06T07:40:00Z',
     temperature: 24.1,
     ph: 6.58,
     fat: 4.4,
@@ -424,12 +553,12 @@ export const INITIAL_TESTS: MilkTest[] = [
     totalAmount: 2469.00
   },
   {
-    testId: 'TEST-20260906-024',
+    testId: 'TEST-20260906-005',
     farmerId: 'FMR-1010',
     farmerName: 'Kavita Deshmukh',
     deviceId: 'ESP32-MILK-001',
     quantity: 32.0,
-    timestamp: '2026-09-06T19:15:00Z',
+    timestamp: '2026-09-06T08:10:00Z',
     temperature: 23.6,
     ph: 6.66,
     fat: 4.6,
@@ -444,6 +573,50 @@ export const INITIAL_TESTS: MilkTest[] = [
     warnings: [],
     ratePerLiter: 41.85,
     totalAmount: 1339.20
+  },
+  {
+    testId: 'TEST-20260906-006',
+    farmerId: 'FMR-1016',
+    farmerName: 'Vijay Raskar',
+    deviceId: 'ESP32-MILK-001',
+    quantity: 40.0,
+    timestamp: '2026-09-06T17:30:00Z',
+    temperature: 25.2,
+    ph: 6.61,
+    fat: 4.1,
+    density: 1.028,
+    conductivity: 5.2,
+    milkLevel: 40.0,
+    qualityScore: 90.5,
+    classification: 'EXCELLENT',
+    prediction: 'PURE',
+    confidence: 0.95,
+    result: 'ACCEPTED',
+    warnings: [],
+    ratePerLiter: 40.10,
+    totalAmount: 1604.00
+  },
+  {
+    testId: 'TEST-20260906-007',
+    farmerId: 'FMR-1012',
+    farmerName: 'Eknath Jagtap',
+    deviceId: 'ESP32-MILK-001',
+    quantity: 22.0,
+    timestamp: '2026-09-06T18:00:00Z',
+    temperature: 24.5,
+    ph: 6.68,
+    fat: 4.3,
+    density: 1.029,
+    conductivity: 5.0,
+    milkLevel: 22.0,
+    qualityScore: 92.0,
+    classification: 'EXCELLENT',
+    prediction: 'PURE',
+    confidence: 0.96,
+    result: 'ACCEPTED',
+    warnings: [],
+    ratePerLiter: 40.80,
+    totalAmount: 897.60
   }
 ];
 
@@ -521,6 +694,25 @@ export const INITIAL_DEVICES: Device[] = [
     },
     location: 'Rural Collection Route Van #2',
     createdAt: '2026-08-01T00:00:00Z'
+  },
+  {
+    deviceId: 'ESP32-MILK-004',
+    name: 'Chilling Silo Monitor Tank 1',
+    status: 'CONNECTED',
+    firmwareVersion: 'v1.4.0',
+    ipAddress: '192.168.1.104',
+    macAddress: '24:6F:28:8A:55:E1',
+    lastSeen: new Date(Date.now() - 15000).toISOString(),
+    sensors: {
+      temperature: true,
+      ph: true,
+      fat: true,
+      conductivity: true,
+      density: true,
+      level: true
+    },
+    location: 'Bulk Cold Storage Silo #1',
+    createdAt: '2026-08-10T00:00:00Z'
   }
 ];
 
@@ -560,11 +752,32 @@ export const INITIAL_ALERTS: Alert[] = [
   },
   {
     alertId: 'ALT-1004',
+    type: 'ABNORMAL_DENSITY',
+    severity: 'CRITICAL',
+    farmerId: 'FMR-1005',
+    farmerName: 'Rameshwar Kadam',
+    testId: 'TEST-20260905-003',
+    deviceId: 'ESP32-MILK-002',
+    message: 'Low milk density (1.021 g/mL) on intake batch. High risk of added water dilution.',
+    status: 'RESOLVED',
+    timestamp: '2026-09-05T07:15:00Z'
+  },
+  {
+    alertId: 'ALT-1005',
+    type: 'SENSOR_ERROR',
+    severity: 'WARNING',
+    deviceId: 'ESP32-MILK-003',
+    message: 'pH probe electrode impedance high on ESP32-MILK-003. Recalibration recommended.',
+    status: 'ACTIVE',
+    timestamp: '2026-09-06T12:00:00Z'
+  },
+  {
+    alertId: 'ALT-1006',
     type: 'ABNORMAL_PH',
     severity: 'INFO',
     farmerId: 'FMR-1002',
     farmerName: 'Suresh Gaikwad',
-    testId: 'TEST-20260906-015',
+    testId: 'TEST-20260906-002',
     deviceId: 'ESP32-MILK-001',
     message: 'Slight pH shift (6.74) recorded during evening intake. Within acceptable range.',
     status: 'RESOLVED',
@@ -573,15 +786,15 @@ export const INITIAL_ALERTS: Alert[] = [
 ];
 
 export const INITIAL_SUMMARY: DashboardSummary = {
-  todayCollectionLiters: 220.5,
+  todayCollectionLiters: 346.5,
   collectionGrowthPercent: 8.4,
-  totalTestsToday: 5,
-  acceptedCount: 4,
+  totalTestsToday: 8,
+  acceptedCount: 7,
   warningCount: 1,
   rejectedCount: 1,
-  averagePurityScore: 92.6,
-  activeFarmers: 11,
+  averagePurityScore: 93.8,
+  activeFarmers: 15,
   deviceStatus: 'CONNECTED',
   primaryDeviceName: 'Smart Milk Analyzer Bay-A',
-  activeAlertsCount: 3
+  activeAlertsCount: 4
 };
