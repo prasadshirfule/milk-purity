@@ -1,0 +1,103 @@
+import { Request, Response } from 'express';
+import { dataRepository } from '../services/seedService';
+
+export const getFarmers = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { search, animalType, status } = req.query;
+    let farmers = await dataRepository.getFarmers();
+
+    if (search && typeof search === 'string') {
+      const q = search.toLowerCase();
+      farmers = farmers.filter(
+        f => f.name.toLowerCase().includes(q) || f.farmerId.toLowerCase().includes(q) || f.village.toLowerCase().includes(q)
+      );
+    }
+
+    if (animalType && typeof animalType === 'string' && animalType !== 'ALL') {
+      farmers = farmers.filter(f => f.animalType === animalType);
+    }
+
+    if (status && typeof status === 'string' && status !== 'ALL') {
+      farmers = farmers.filter(f => f.status === status);
+    }
+
+    res.json({ success: true, count: farmers.length, data: farmers });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+export const getFarmerById = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const farmer = await dataRepository.getFarmerById(req.params.id);
+    if (!farmer) {
+      res.status(404).json({ success: false, error: 'Farmer not found' });
+      return;
+    }
+
+    // Get farmer tests history
+    const allTests = await dataRepository.getTests();
+    const farmerTests = allTests.filter(t => t.farmerId === req.params.id);
+
+    res.json({
+      success: true,
+      data: {
+        ...farmer,
+        tests: farmerTests
+      }
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+export const createFarmer = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { name, mobile, village, animalType, address, notes, status } = req.body;
+
+    if (!name || !mobile || !village) {
+      res.status(400).json({ success: false, error: 'Name, mobile and village are required fields' });
+      return;
+    }
+
+    const created = await dataRepository.addFarmer({
+      name,
+      mobile,
+      village,
+      animalType: animalType || 'COW',
+      address,
+      notes,
+      status: status || 'ACTIVE'
+    });
+
+    res.status(201).json({ success: true, data: created });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+export const updateFarmer = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const updated = await dataRepository.updateFarmer(req.params.id, req.body);
+    if (!updated) {
+      res.status(404).json({ success: false, error: 'Farmer not found' });
+      return;
+    }
+    res.json({ success: true, data: updated });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+export const deleteFarmer = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const deleted = await dataRepository.deleteFarmer(req.params.id);
+    if (!deleted) {
+      res.status(404).json({ success: false, error: 'Farmer not found' });
+      return;
+    }
+    res.json({ success: true, message: 'Farmer deactivated/deleted successfully' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};

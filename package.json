@@ -1,0 +1,22 @@
+{
+  "name": "milk-purity-system",
+  "version": "1.0.0",
+  "description": "Smart Milk Purity Detection and Dairy Management System with ESP32 IoT integration and ML prediction readiness",
+  "scripts": {
+    "dev:frontend": "npm run dev --prefix frontend",
+    "dev:backend": "npm run dev --prefix backend",
+    "build:frontend": "npm run build --prefix frontend",
+    "build:backend": "npm run build --prefix backend",
+    "build": "npm run build:frontend && npm run build:backend"
+  },
+  "keywords": [
+    "dairy",
+    "milk-purity",
+    "iot",
+    "esp32",
+    "dashboard",
+    "smart-dairy"
+  ],
+  "author": "Smart Dairy Systems",
+  "license": "ISC"
+}
