@@ -8,11 +8,11 @@ export interface ParameterAnalysisTableProps {
 
 export const ParameterAnalysisTable: React.FC<ParameterAnalysisTableProps> = ({ quality }) => {
   const params = [
-    { name: 'pH Level', assessment: quality.parameters.ph, testPurpose: 'Freshness & Neutralizer detection' },
-    { name: 'Fat Content', assessment: quality.parameters.fat, testPurpose: 'Nutritional value & Pricing basis' },
-    { name: 'Specific Density', assessment: quality.parameters.density, testPurpose: 'Water adulteration & Solids ratio' },
-    { name: 'Conductivity (EC)', assessment: quality.parameters.conductivity, testPurpose: 'Dissolved salts/Urea/Detergent detection' },
-    { name: 'Intake Temperature', assessment: quality.parameters.temperature, testPurpose: 'Cold chain compliance & Chill status' }
+    { name: 'pH Level', assessment: quality.parameters.ph, testPurpose: 'Freshness & acidity/alkalinity deviation screening' },
+    { name: 'Estimated Fat (%)', assessment: quality.parameters.fat, testPurpose: 'Optical prototype estimate & pricing reference' },
+    { name: 'Specific Density', assessment: quality.parameters.density, testPurpose: 'Density deviation & solids ratio screening' },
+    { name: 'Conductivity (EC)', assessment: quality.parameters.conductivity, testPurpose: 'Dissolved ions & conductivity anomaly screening' },
+    { name: 'Intake Temperature', assessment: quality.parameters.temperature, testPurpose: 'Cold chain compliance & chill monitoring' }
   ];
 
   const getStatusBadge = (status: string) => {

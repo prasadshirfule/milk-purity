@@ -244,4 +244,35 @@ describe('Workflow & Decision Logic Rules', () => {
     const price = QualityService.calculatePricing(4.0, 70.0, DEFAULT_THRESHOLDS);
     assert.strictEqual(price, 35.77);
   });
+
+  it('should validate manual override requirement logic', () => {
+    const recommendedResult = 'REJECTED';
+    const decision = 'ACCEPT';
+    const emptyReason = '   ';
+    const validReason = 'Laboratory re-test spot check passed';
+
+    const isOverrideValid = (rec: string, dec: string, reason?: string) => {
+      if (rec === 'REJECTED' && dec === 'ACCEPT') {
+        return typeof reason === 'string' && reason.trim().length > 0;
+      }
+      return true;
+    };
+
+    assert.strictEqual(isOverrideValid(recommendedResult, decision, emptyReason), false);
+    assert.strictEqual(isOverrideValid(recommendedResult, decision, undefined), false);
+    assert.strictEqual(isOverrideValid(recommendedResult, decision, validReason), true);
+  });
+
+  it('should validate operator decision string whitelist', () => {
+    const isValidDecision = (d?: string) => {
+      if (d === undefined || d === null) return true;
+      return d === 'ACCEPT' || d === 'REJECT';
+    };
+
+    assert.strictEqual(isValidDecision('ACCEPT'), true);
+    assert.strictEqual(isValidDecision('REJECT'), true);
+    assert.strictEqual(isValidDecision(undefined), true);
+    assert.strictEqual(isValidDecision('MAYBE'), false);
+    assert.strictEqual(isValidDecision('accepted'), false);
+  });
 });

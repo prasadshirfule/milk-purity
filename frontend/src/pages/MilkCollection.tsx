@@ -41,10 +41,10 @@ export const MilkCollection: React.FC = () => {
   const avgFat =
     filteredCollections.length > 0
       ? Number((filteredCollections.reduce((sum, c) => sum + c.fat, 0) / filteredCollections.length).toFixed(2))
-      : 4.3;
+      : 0;
 
   const handleExportCSV = () => {
-    const headers = ['Collection ID,Test ID,Farmer ID,Farmer Name,Quantity (L),Fat (%),Rate (INR),Total Amount (INR),Date'];
+    const headers = ['Collection ID,Test ID,Farmer ID,Farmer Name,Quantity (L),Estimated Fat (%),Rate (INR),Total Amount (INR),Date'];
     const rows = filteredCollections.map(
       (c) =>
         `"${c.collectionId}","${c.testId}","${c.farmerId}","${c.farmerName}",${c.quantity},${c.fat},${c.rate},${c.totalAmount},"${new Date(
@@ -101,7 +101,7 @@ export const MilkCollection: React.FC = () => {
             Milk Collection & Farmer Payout Ledger
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Transparent intake accounting with automated fat-linked pricing
+            Transparent intake accounting with automated fat-linked illustrative pricing
           </p>
         </div>
 
@@ -144,7 +144,7 @@ export const MilkCollection: React.FC = () => {
         />
 
         <StatCard
-          title="Average Fat Percentage"
+          title="Average Estimated Fat"
           value={`${avgFat}%`}
           subtitle="Weighted intake average"
           icon={<Droplets className="w-5 h-5" />}

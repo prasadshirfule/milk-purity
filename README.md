@@ -171,18 +171,21 @@ uvicorn app:app --port 8000 --reload
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
 | `GET` | `/api/health` | Backend health & uptime check |
-| `GET` | `/api/summary` | Dashboard metrics & collection summaries |
-| `POST` | `/api/sensors/stream` | Ingest live JSON telemetry from ESP32 |
+| `GET` | `/api/dashboard/summary` | Dashboard metrics & collection summaries (alias: `/api/summary`) |
+| `POST` | `/api/sensors/readings` | Ingest live JSON telemetry from ESP32 |
 | `GET` | `/api/sensors/latest` | Retrieve latest sensor reading |
-| `POST` | `/api/tests` | Log a milk quality test & calculate pricing |
+| `POST` | `/api/tests` | Log a milk quality test & calculate pricing (supports operator decision & override) |
 | `GET` | `/api/tests` | Query historical milk tests with pagination |
 | `GET` | `/api/farmers` | List registered farmers |
 | `POST` | `/api/farmers` | Register a new farmer |
 | `GET` | `/api/collections` | Fetch milk collection ledger |
 | `GET` | `/api/devices` | Monitor IoT devices and probe health |
+| `GET` | `/api/alerts` | Query active and historical system alerts |
 | `GET` | `/api/settings` | Read configured dairy reference thresholds |
 | `PUT` | `/api/settings` | Update thresholds and pricing parameters |
 | `POST` | `/api/ml/predict` | Proxy milk quality prediction to ML service |
+
+> **Telemetry Protocol Note:** HTTP telemetry (`POST /api/sensors/readings`) is currently implemented. MQTT integration is planned for future hardware deployment.
 
 ---
 

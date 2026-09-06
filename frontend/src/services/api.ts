@@ -28,14 +28,44 @@ export async function apiClient<T>(
       }
     });
 
-    const data = await response.json();
-    return data;
+    const contentType = response.headers.get('content-type') || '';
+    let parsedBody: any = null;
+
+    if (contentType.includes('application/json')) {
+      try {
+        parsedBody = await response.json();
+      } catch (jsonErr) {
+        parsedBody = null;
+      }
+    } else {
+      const textBody = await response.text();
+      parsedBody = textBody ? { message: textBody } : null;
+    }
+
+    if (!response.ok) {
+      const errorMessage =
+        parsedBody?.error ||
+        parsedBody?.message ||
+        `HTTP ${response.status}: ${response.statusText || 'Request failed'}`;
+      return {
+        success: false,
+        error: errorMessage
+      };
+    }
+
+    if (parsedBody && typeof parsedBody === 'object') {
+      return parsedBody as ApiResponse<T>;
+    }
+
+    return {
+      success: true,
+      data: parsedBody as T
+    };
   } catch (error: any) {
-    // If backend is unreachable, throw so caller / demo context can provide fallback
     console.warn(`API call failed for ${endpoint}:`, error?.message || error);
     return {
       success: false,
-      error: error?.message || 'Network error / backend unavailable'
+      error: error?.message || 'Network error / backend service unreachable'
     };
   }
 }

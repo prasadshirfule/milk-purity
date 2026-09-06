@@ -30,12 +30,16 @@ export const createApp = (): Application => {
 
   app.use(cors({
     origin: (origin, callback) => {
-      // Allow non-browser agents, local tools, or matched origins
-      if (!origin || allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(null, true);
+      // Allow requests with no origin (e.g. mobile apps, curl, server-to-server)
+      if (!origin) {
+        return callback(null, true);
       }
+      // Allow matched or allowlisted origins
+      if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      // Reject unknown origins
+      return callback(new Error(`Origin ${origin} not allowed by CORS`));
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']

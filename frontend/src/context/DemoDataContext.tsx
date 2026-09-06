@@ -112,35 +112,36 @@ export const DemoDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, [alerts]);
 
-  // Compute live dynamic dashboard summary
+  // Compute live dynamic dashboard summary from demo records
   const summary: DashboardSummary = React.useMemo(() => {
     const todayStr = new Date().toDateString();
     const todayTests = tests.filter((t) => new Date(t.timestamp).toDateString() === todayStr);
+    const activeTestList = todayTests.length > 0 ? todayTests : tests;
 
-    const acceptedCount = todayTests.filter((t) => t.result === 'ACCEPTED').length;
-    const warningCount = todayTests.filter((t) => t.result === 'WARNING').length;
-    const rejectedCount = todayTests.filter((t) => t.result === 'REJECTED').length;
+    const acceptedCount = activeTestList.filter((t) => t.result === 'ACCEPTED').length;
+    const warningCount = activeTestList.filter((t) => t.result === 'WARNING').length;
+    const rejectedCount = activeTestList.filter((t) => t.result === 'REJECTED').length;
 
-    const todayCollectionLiters = todayTests
+    const todayCollectionLiters = activeTestList
       .filter((t) => t.result !== 'REJECTED')
-      .reduce((sum, t) => sum + t.quantity, 0);
+      .reduce((sum, t) => sum + (t.quantity || 0), 0);
 
     const avgPurity =
-      todayTests.length > 0
-        ? Number((todayTests.reduce((sum, t) => sum + t.qualityScore, 0) / todayTests.length).toFixed(1))
-        : 92.6;
+      activeTestList.length > 0
+        ? Number((activeTestList.reduce((sum, t) => sum + (t.qualityScore || 0), 0) / activeTestList.length).toFixed(1))
+        : 0;
 
     const activeFarmers = farmers.filter((f) => f.status === 'ACTIVE').length;
     const primaryDevice = devices.find((d) => d.deviceId === 'ESP32-MILK-001') || devices[0];
     const activeAlertsCount = alerts.filter((a) => a.status === 'ACTIVE').length;
 
     return {
-      todayCollectionLiters: Number(todayCollectionLiters.toFixed(1)) || 220.5,
+      todayCollectionLiters: Number(todayCollectionLiters.toFixed(1)),
       collectionGrowthPercent: 8.4,
-      totalTestsToday: todayTests.length || 5,
-      acceptedCount: acceptedCount || 4,
-      warningCount: warningCount || 1,
-      rejectedCount: rejectedCount || 1,
+      totalTestsToday: activeTestList.length,
+      acceptedCount,
+      warningCount,
+      rejectedCount,
       averagePurityScore: avgPurity,
       activeFarmers,
       deviceStatus: primaryDevice ? primaryDevice.status : 'CONNECTED',
@@ -242,7 +243,8 @@ export const DemoDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
 
     const actualFarmerName = farmerName || farmers.find((f) => f.farmerId === farmerId)?.name || 'Farmer';
-    const testId = `TEST-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(100 + Math.random() * 900)}`;
+    const testId = `TEST-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+    const trimmedOverrideReason = typeof overrideReason === 'string' ? overrideReason.trim() : '';
 
     const newTest: MilkTest = {
       testId,
@@ -261,7 +263,7 @@ export const DemoDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       classification: quality.classification,
       recommendedResult,
       operatorDecision: decision,
-      overrideReason,
+      overrideReason: trimmedOverrideReason || (recommendedResult === 'REJECTED' && decision === 'ACCEPT' ? 'Operator manual override logged' : undefined),
       prediction: finalResult === 'REJECTED' ? 'DEMO_ANOMALY' : 'DEMO_NORMAL',
       confidence: null,
       warnings: quality.warnings,

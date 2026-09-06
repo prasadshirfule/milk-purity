@@ -4,6 +4,7 @@ import { ParameterAssessment } from '../../types';
 
 export interface SensorCardProps {
   title: string;
+  subtitle?: string;
   value: number;
   unit: string;
   assessment?: ParameterAssessment;
@@ -14,6 +15,7 @@ export interface SensorCardProps {
 
 export const SensorCard: React.FC<SensorCardProps> = ({
   title,
+  subtitle,
   value,
   unit,
   assessment,
@@ -39,6 +41,9 @@ export const SensorCard: React.FC<SensorCardProps> = ({
           <div className={`p-2.5 rounded-xl ${iconColor}`}>{icon}</div>
           <div>
             <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">{title}</h4>
+            {subtitle && (
+              <p className="text-[10px] text-slate-400 font-medium leading-tight">{subtitle}</p>
+            )}
             <div className="flex items-baseline gap-1.5 mt-0.5">
               <span className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 font-mono">
                 {value}

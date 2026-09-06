@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { dataRepository } from '../services/seedService';
 import { QualityService } from '../services/qualityService';
 import { MLService } from '../services/mlService';
+import { ENV } from '../config/environment';
 import { IMilkTest, IMilkCollection, IAlert } from '../types';
 
 export const getTests = async (req: Request, res: Response): Promise<void> => {
@@ -105,25 +106,91 @@ export const createTest = async (req: Request, res: Response): Promise<void> => 
     }
     const fatNum = Number(fat);
 
-    const tempNum = isFiniteNumber(temperature) ? Number(temperature) : 24.0;
-    if (tempNum < -10 || tempNum > 100) {
-      res.status(400).json({ success: false, error: 'Invalid temperature: must be between -10 and 100 °C' });
-      return;
+    const isDemo = ENV.DEMO_MODE === true;
+
+    // In connected/API mode, missing sensor measurements are rejected
+    if (!isDemo) {
+      if (temperature === undefined || temperature === null) {
+        res.status(400).json({ success: false, error: 'Missing required field in connected mode: temperature' });
+        return;
+      }
+      if (density === undefined || density === null) {
+        res.status(400).json({ success: false, error: 'Missing required field in connected mode: density' });
+        return;
+      }
+      if (conductivity === undefined || conductivity === null) {
+        res.status(400).json({ success: false, error: 'Missing required field in connected mode: conductivity' });
+        return;
+      }
+      if (milkLevel === undefined || milkLevel === null) {
+        res.status(400).json({ success: false, error: 'Missing required field in connected mode: milkLevel' });
+        return;
+      }
     }
 
-    const densityNum = isFiniteNumber(density) ? Number(density) : 1.029;
-    if (densityNum < 0.5 || densityNum > 2.0) {
-      res.status(400).json({ success: false, error: 'Invalid density: must be between 0.5 and 2.0 g/mL' });
-      return;
+    let tempNum = 24.0;
+    if (temperature !== undefined && temperature !== null) {
+      if (!isFiniteNumber(temperature)) {
+        res.status(400).json({ success: false, error: 'Invalid temperature: must be a valid finite number' });
+        return;
+      }
+      tempNum = Number(temperature);
+      if (tempNum < -10 || tempNum > 100) {
+        res.status(400).json({ success: false, error: 'Invalid temperature: must be between -10 and 100 °C' });
+        return;
+      }
     }
 
-    const condNum = isFiniteNumber(conductivity) ? Number(conductivity) : 5.0;
-    if (condNum < 0 || condNum > 50) {
-      res.status(400).json({ success: false, error: 'Invalid conductivity: must be between 0 and 50 mS/cm' });
-      return;
+    let densityNum = 1.029;
+    if (density !== undefined && density !== null) {
+      if (!isFiniteNumber(density)) {
+        res.status(400).json({ success: false, error: 'Invalid density: must be a valid finite number' });
+        return;
+      }
+      densityNum = Number(density);
+      if (densityNum < 0.5 || densityNum > 2.0) {
+        res.status(400).json({ success: false, error: 'Invalid density: must be between 0.5 and 2.0 g/mL' });
+        return;
+      }
     }
 
-    const levelNum = isFiniteNumber(milkLevel) ? Math.max(0, Number(milkLevel)) : qtyNum;
+    let condNum = 5.0;
+    if (conductivity !== undefined && conductivity !== null) {
+      if (!isFiniteNumber(conductivity)) {
+        res.status(400).json({ success: false, error: 'Invalid conductivity: must be a valid finite number' });
+        return;
+      }
+      condNum = Number(conductivity);
+      if (condNum < 0 || condNum > 50) {
+        res.status(400).json({ success: false, error: 'Invalid conductivity: must be between 0 and 50 mS/cm' });
+        return;
+      }
+    }
+
+    let levelNum = qtyNum;
+    if (milkLevel !== undefined && milkLevel !== null) {
+      if (!isFiniteNumber(milkLevel)) {
+        res.status(400).json({ success: false, error: 'Invalid milkLevel: must be a valid finite number' });
+        return;
+      }
+      levelNum = Number(milkLevel);
+      if (levelNum < 0) {
+        res.status(400).json({ success: false, error: 'Invalid milkLevel: cannot be negative' });
+        return;
+      }
+    }
+
+    // Validate operatorDecision
+    if (operatorDecision !== undefined && operatorDecision !== null) {
+      if (operatorDecision !== 'ACCEPT' && operatorDecision !== 'REJECT') {
+        res.status(400).json({
+          success: false,
+          error: `Invalid operatorDecision "${operatorDecision}": must be "ACCEPT" or "REJECT"`
+        });
+        return;
+      }
+    }
+    const decision: 'ACCEPT' | 'REJECT' = operatorDecision === 'REJECT' ? 'REJECT' : 'ACCEPT';
 
     const settings = await dataRepository.getSettings();
     const sensorData = {
@@ -141,11 +208,20 @@ export const createTest = async (req: Request, res: Response): Promise<void> => 
     const qualityEval = QualityService.calculateQuality(sensorData, settings.thresholds);
     const recommendedResult = qualityEval.result; // 'ACCEPTED' | 'WARNING' | 'REJECTED'
 
-    // 2. Query ML service prediction (mock / live)
-    const mlPrediction = await MLService.predictPurity(sensorData);
+    // 2. Enforce overrideReason if operator is accepting a rejected recommendation
+    const trimmedOverrideReason = typeof overrideReason === 'string' ? overrideReason.trim() : '';
+    if (recommendedResult === 'REJECTED' && decision === 'ACCEPT') {
+      if (!trimmedOverrideReason) {
+        res.status(400).json({
+          success: false,
+          error: 'Manual override requires a non-empty overrideReason when accepting a batch with recommendedResult REJECTED'
+        });
+        return;
+      }
+    }
 
-    // 3. Determine operator decision & final result
-    const decision: 'ACCEPT' | 'REJECT' = operatorDecision === 'REJECT' ? 'REJECT' : 'ACCEPT';
+    // 3. Query ML service prediction (mock / live)
+    const mlPrediction = await MLService.predictPurity(sensorData);
 
     let finalResult: 'ACCEPTED' | 'WARNING' | 'REJECTED' = 'REJECTED';
     let ratePerLiter = 0;
@@ -173,7 +249,7 @@ export const createTest = async (req: Request, res: Response): Promise<void> => 
       }
     }
 
-    const testId = `TEST-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(100 + Math.random() * 900)}`;
+    const testId = `TEST-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
 
     const newTest: IMilkTest = {
       testId,
@@ -192,7 +268,7 @@ export const createTest = async (req: Request, res: Response): Promise<void> => 
       classification: qualityEval.classification,
       recommendedResult,
       operatorDecision: decision,
-      overrideReason: overrideReason || undefined,
+      overrideReason: trimmedOverrideReason || undefined,
       prediction: mlPrediction.prediction,
       confidence: mlPrediction.confidence,
       warnings: [...qualityEval.warnings, ...mlPrediction.warnings],

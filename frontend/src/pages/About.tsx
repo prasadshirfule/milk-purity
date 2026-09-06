@@ -91,7 +91,7 @@ export const About: React.FC = () => {
           </div>
           <h3 className="text-base font-bold text-slate-900">ESP32 Telemetry Engine</h3>
           <p className="text-xs text-slate-600 leading-relaxed">
-            Embedded microcontroller code continuously samples probe arrays and pushes structured JSON payloads via HTTP POST or MQTT broker to <code className="text-slate-800 bg-slate-100 px-1 py-0.5 rounded font-mono text-[11px]">/api/sensors/stream</code>.
+            Embedded microcontroller code continuously samples probe arrays and pushes structured JSON payloads via HTTP POST to <code className="text-slate-800 bg-slate-100 px-1 py-0.5 rounded font-mono text-[11px]">/api/sensors/readings</code> (MQTT planned for future hardware deployment).
           </p>
           <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 text-[11px] font-mono text-slate-600">
             {'{ "deviceId": "ESP32-001", "ph": 6.64, "fat": 4.5, "density": 1.029, ... }'}

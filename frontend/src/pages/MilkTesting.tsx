@@ -278,7 +278,8 @@ export const MilkTesting: React.FC = () => {
             />
 
             <SensorCard
-              title="Fat Percentage"
+              title="Estimated Fat"
+              subtitle="Prototype optical estimate"
               value={reading.fat}
               unit="%"
               assessment={qualityPreview.parameters.fat}

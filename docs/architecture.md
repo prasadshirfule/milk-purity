@@ -14,7 +14,7 @@ Farmer
 Milk Sample
   ↓ (Inserted into testing vessel / dock probe chamber)
 ESP32 / Sensor Simulator  [Hardware-ready / Simulated in Demo Mode]
-  ↓ (JSON telemetry via HTTP POST / MQTT to /api/sensors/stream)
+  ↓ (JSON telemetry via HTTP POST to /api/sensors/readings; MQTT planned for future)
 Backend API (Express & Node.js)
   ↓ (Validates payload bounds & coordinates pipelines)
 Quality Engine (Configurable Reference Range Matrix & Pricing Engine in ₹)
@@ -34,7 +34,7 @@ Dashboard (React + Vite + TypeScript)
 | Layer | Technology | Operational Mode | Simulation Status in Demo Mode |
 | :--- | :--- | :--- | :--- |
 | **Farmer Intake** | Physical collection dock | Live Intake | Real workflows & farmer profiles |
-| **IoT Node** | ESP32-WROOM-32 / ESP32-S3 | HTTP / MQTT Stream | **Simulated** via Brownian-jitter generator with 5 presets |
+| **IoT Node** | ESP32-WROOM-32 / ESP32-S3 | HTTP Telemetry (MQTT planned) | **Simulated** via Brownian-jitter generator with 5 presets |
 | **Sensor Probes** | DS18B20, pH BNC, Optical, EC | Analog/Digital ADC | **Simulated** via realistic mathematical ranges |
 | **Backend API** | Node.js, Express, TypeScript | RESTful API | **Live engine** with in-memory / MongoDB dual mode |
 | **Quality Engine** | TypeScript Rule Engine | Configurable Matrices | **Live computational engine** (configurable ranges) |
