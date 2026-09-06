@@ -69,7 +69,9 @@ export const QualityScoreCard: React.FC<QualityScoreCardProps> = ({ quality }) =
               </span>
               <span className="text-xs text-slate-400 flex items-center gap-1">
                 <Sparkles className="w-3.5 h-3.5 text-dairy-400" />
-                Confidence: {(quality.mlConfidence ? quality.mlConfidence * 100 : 95).toFixed(0)}%
+                {quality.mlConfidence != null
+                  ? `Confidence: ${(quality.mlConfidence * 100).toFixed(0)}%`
+                  : 'ML: DEMO PREDICTION'}
               </span>
             </div>
           </div>
@@ -99,6 +101,16 @@ export const QualityScoreCard: React.FC<QualityScoreCardProps> = ({ quality }) =
             </div>
           )}
         </div>
+      </div>
+
+      {/* Engineering Disclaimer */}
+      <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+        <span className="italic">
+          * Demo/engineering assessment only. Not a certified laboratory assay.
+        </span>
+        <span className="font-semibold text-slate-500 uppercase tracking-wider text-[10px]">
+          MILKGUARD Demo Engine
+        </span>
       </div>
     </Card>
   );

@@ -67,7 +67,7 @@ export interface QualityResult {
     conductivity: ParameterAssessment;
   };
   isMlPredicted?: boolean;
-  mlConfidence?: number;
+  mlConfidence?: number | null;
   mlPrediction?: string;
 }
 
@@ -87,7 +87,7 @@ export interface MilkTest {
   qualityScore: number;
   classification: QualityClassification;
   prediction?: string;
-  confidence?: number;
+  confidence?: number | null;
   warnings: string[];
   result: TestResult;
   ratePerLiter?: number;
@@ -127,7 +127,14 @@ export interface Device {
   ipAddress?: string;
   macAddress?: string;
   lastSeen: string | Date;
-  sensors: DeviceSensorHealth;
+  sensors: {
+    temperature: boolean;
+    ph: boolean;
+    fat: boolean;
+    conductivity: boolean;
+    density: boolean;
+    level: boolean;
+  };
   location?: string;
   createdAt: string | Date;
 }
@@ -187,8 +194,9 @@ export interface DashboardSummary {
 
 export interface MLPredictionResponse {
   prediction: string;
-  confidence: number;
+  confidence: number | null;
   score: number;
   warnings: string[];
   isMock: boolean;
+  disclaimer?: string;
 }

@@ -48,9 +48,9 @@ export const Login: React.FC = () => {
             <Milk className="w-6 h-6" />
           </div>
           <div>
-            <span className="text-lg font-black tracking-tight text-white block">MILK PURITY</span>
+            <span className="text-lg font-black tracking-tight text-white block">MILKGUARD</span>
             <span className="text-xs font-semibold text-dairy-400 tracking-wider uppercase block">
-              Smart IoT & Dairy Management
+              Smart Milk Quality & Dairy Management
             </span>
           </div>
         </div>
@@ -60,10 +60,10 @@ export const Login: React.FC = () => {
             <Sparkles className="w-3.5 h-3.5" /> Next-Gen Smart Dairy OS
           </div>
           <h2 className="text-4xl font-extrabold text-white tracking-tight leading-tight">
-            Precision Quality Assurance for Every Drop of Milk.
+            Precision Quality Assurance for Every Milk Intake.
           </h2>
           <p className="text-sm text-slate-400 leading-relaxed">
-            Real-time IoT telemetry from ESP32 sensors, instantaneous multi-parameter adulteration detection, automated farmer payouts, and ML purity classification.
+            Real-time IoT telemetry from ESP32 sensors, multi-parameter quality assessment, automated transparent farmer ledger computation, and ML prediction integration.
           </p>
 
           <div className="space-y-3 pt-2 text-xs text-slate-300">
@@ -73,7 +73,7 @@ export const Login: React.FC = () => {
             </div>
             <div className="flex items-center gap-2.5">
               <CheckCircle2 className="w-4 h-4 text-dairy-400 shrink-0" />
-              <span>Direct farmer ledger & instant transparent rate computation</span>
+              <span>Direct farmer ledger & instant transparent rate computation (₹)</span>
             </div>
             <div className="flex items-center gap-2.5">
               <CheckCircle2 className="w-4 h-4 text-dairy-400 shrink-0" />
@@ -83,7 +83,7 @@ export const Login: React.FC = () => {
         </div>
 
         <div className="text-xs text-slate-500">
-          © 2026 Smart Dairy Systems • Amrit Dairy Collection Division
+          © 2026 MILKGUARD Systems • Smart Milk Quality & Dairy Management
         </div>
       </div>
 

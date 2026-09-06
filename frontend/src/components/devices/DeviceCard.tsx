@@ -34,7 +34,12 @@ export const DeviceCard: React.FC<DeviceCardProps> = ({ device, onAction }) => {
               <Cpu className="w-6 h-6" />
             </div>
             <div>
-              <h4 className="text-base font-bold text-slate-900 leading-tight">{device.name}</h4>
+              <div className="flex items-center gap-1.5">
+                <h4 className="text-base font-bold text-slate-900 leading-tight">{device.name}</h4>
+                <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded bg-amber-50 text-amber-800 border border-amber-200">
+                  SIMULATED DEVICE
+                </span>
+              </div>
               <p className="text-xs font-mono text-slate-500 mt-0.5">{device.deviceId}</p>
             </div>
           </div>

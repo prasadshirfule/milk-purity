@@ -36,6 +36,8 @@ export const Header: React.FC<HeaderProps> = ({ onMenuToggle }) => {
         return 'System Alerts & Quality Audit';
       case '/settings':
         return 'Dairy Standards & Settings';
+      case '/about':
+        return 'About System & Architecture';
       default:
         if (path.startsWith('/farmers/')) return 'Farmer Profile & History';
         if (path.startsWith('/devices/')) return 'IoT Device Telemetry';

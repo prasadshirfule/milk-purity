@@ -3,17 +3,22 @@ import { SensorReading, QualityResult, ParameterAssessment, ThresholdSettings, P
 export class QualityCalculator {
   private static assess(val: number, min: number, max: number, unit: string, name: string): ParameterAssessment {
     let status: ParameterStatus = 'NORMAL';
-    let message = `${name} is optimal (${val} ${unit})`;
+    let message = `${name} within configured reference range (${val} ${unit})`;
 
-    if (val < min * 0.9 || val > max * 1.1) {
+    const range = max - min;
+    const criticalMargin = range > 0 ? range * 0.5 : Math.max(0.1, min * 0.1);
+    const criticalLower = min - criticalMargin;
+    const criticalUpper = max + criticalMargin;
+
+    if (val < criticalLower || val > criticalUpper) {
       status = 'CRITICAL';
-      message = `${name} (${val} ${unit}) is dangerously outside standard (${min} - ${max} ${unit})`;
+      message = `${name} (${val} ${unit}) significantly outside reference bounds (${min} – ${max} ${unit}). Requires laboratory verification.`;
     } else if (val < min) {
       status = 'LOW';
-      message = `${name} (${val} ${unit}) is below normal minimum (${min} ${unit})`;
+      message = `${name} (${val} ${unit}) below reference minimum (${min} ${unit})`;
     } else if (val > max) {
       status = 'HIGH';
-      message = `${name} (${val} ${unit}) exceeds normal maximum (${max} ${unit})`;
+      message = `${name} (${val} ${unit}) exceeds reference maximum (${max} ${unit})`;
     }
 
     return {
@@ -39,34 +44,34 @@ export class QualityCalculator {
 
     if (ph.status === 'CRITICAL') {
       penalty += 35;
-      warnings.push(`Abnormal pH (${reading.ph}). Microbial acidification or chemical neutralizer detected.`);
+      warnings.push(`pH deviation (${reading.ph}). Parameter anomaly detected. Requires laboratory verification.`);
     } else if (ph.status !== 'NORMAL') {
       penalty += 15;
-      warnings.push(`pH deviation (${reading.ph}). Standard is ${thresholds.phMin}-${thresholds.phMax}.`);
+      warnings.push(`pH reading (${reading.ph}) outside reference range (${thresholds.phMin} – ${thresholds.phMax}).`);
     }
 
     if (density.status === 'CRITICAL') {
       penalty += 40;
-      warnings.push(`Severe density anomaly (${reading.density} g/mL). Water dilution suspected.`);
+      warnings.push(`Density anomaly detected (${reading.density} g/mL). Reference range is ${thresholds.densityMin} – ${thresholds.densityMax} g/mL.`);
     } else if (density.status !== 'NORMAL') {
       penalty += 18;
-      warnings.push(`Density deviation (${reading.density} g/mL). Standard is ${thresholds.densityMin}-${thresholds.densityMax} g/mL.`);
+      warnings.push(`Density deviation (${reading.density} g/mL) from reference range.`);
     }
 
     if (cond.status === 'CRITICAL') {
       penalty += 35;
-      warnings.push(`High conductivity (${reading.conductivity} mS/cm). Added salts or neutralizers suspected.`);
+      warnings.push(`Conductivity (${reading.conductivity} mS/cm) elevated above reference baseline. Secondary laboratory verification advised.`);
     } else if (cond.status !== 'NORMAL') {
       penalty += 12;
-      warnings.push(`Conductivity (${reading.conductivity} mS/cm) outside standard range.`);
+      warnings.push(`Conductivity (${reading.conductivity} mS/cm) outside configured reference range.`);
     }
 
     if (fat.status === 'CRITICAL') {
       penalty += 25;
-      warnings.push(`Fat (${reading.fat}%) significantly below standard threshold.`);
+      warnings.push(`Fat content (${reading.fat}%) below configured statutory cutoff.`);
     } else if (fat.status === 'LOW') {
       penalty += 10;
-      warnings.push(`Fat (${reading.fat}%) below target standard.`);
+      warnings.push(`Fat percentage (${reading.fat}%) below target standard.`);
     }
 
     const rawScore = Math.max(10, Math.min(100, 100 - penalty));
@@ -78,19 +83,19 @@ export class QualityCalculator {
     if (score >= thresholds.scoreExcellentMin) {
       classification = 'EXCELLENT';
       result = 'ACCEPTED';
-      recommendations.push('Grade-A Pure Milk. Approved for premium dairy intake.');
+      recommendations.push('Parameters within Grade-A configured reference standards. Approved for intake.');
     } else if (score >= thresholds.scoreGoodMin) {
       classification = 'GOOD';
       result = 'ACCEPTED';
-      recommendations.push('Standard commercial quality. Approved for normal processing.');
+      recommendations.push('Parameters within standard commercial reference tolerance. Approved for processing.');
     } else if (score >= thresholds.scoreSuspiciousMin) {
       classification = 'SUSPICIOUS';
       result = 'WARNING';
-      recommendations.push('Quality is borderline. Secondary laboratory confirmation advised.');
+      recommendations.push('Quality parameters borderline. Secondary laboratory verification advised before bulk blending.');
     } else {
       classification = 'REJECT';
       result = 'REJECTED';
-      recommendations.push('Batch rejected. Failed minimum purity/hygiene safety thresholds.');
+      recommendations.push('Batch flagged for parameter deviation. Fails configured quality thresholds.');
     }
 
     return {
@@ -107,7 +112,7 @@ export class QualityCalculator {
         temperature: temp
       },
       isMlPredicted: false,
-      mlConfidence: 0.95
+      mlConfidence: undefined
     };
   }
 

@@ -12,7 +12,8 @@ import {
   Settings,
   X,
   Milk,
-  Radio
+  Radio,
+  Info
 } from 'lucide-react';
 import { useDemoData } from '../../context/DemoDataContext';
 
@@ -38,7 +39,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       icon: AlertTriangle,
       count: summary.activeAlertsCount > 0 ? summary.activeAlertsCount : undefined
     },
-    { name: 'Settings', path: '/settings', icon: Settings }
+    { name: 'Settings', path: '/settings', icon: Settings },
+    { name: 'About System', path: '/about', icon: Info }
   ];
 
   return (
@@ -63,9 +65,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
               <Milk className="w-5 h-5" />
             </div>
             <div>
-              <span className="text-sm font-black tracking-tight text-white block">MILK PURITY</span>
-              <span className="text-[10px] font-semibold text-dairy-400 tracking-wider uppercase block">
-                Smart Dairy OS
+              <span className="text-sm font-black tracking-tight text-white block">MILKGUARD</span>
+              <span className="text-[9px] font-semibold text-dairy-400 tracking-wider uppercase block">
+                Smart Milk Quality
               </span>
             </div>
           </div>

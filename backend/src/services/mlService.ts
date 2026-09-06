@@ -3,10 +3,11 @@ import { ENV } from '../config/environment';
 
 export interface IMLResponse {
   prediction: string;
-  confidence: number;
+  confidence: number | null;
   score: number;
   warnings: string[];
   isMock: boolean;
+  disclaimer: string;
 }
 
 export class MLService {
@@ -30,11 +31,12 @@ export class MLService {
       if (response.ok) {
         const data = await response.json();
         return {
-          prediction: data.prediction || 'PURE',
-          confidence: data.confidence ?? 0.95,
+          prediction: data.prediction || 'DEMO_NORMAL',
+          confidence: data.confidence ?? null,
           score: data.score ?? 92.0,
           warnings: data.warnings || [],
-          isMock: false
+          isMock: data.is_mock ?? true,
+          disclaimer: 'Demo/engineering assessment only. Not a certified laboratory assay.'
         };
       }
     } catch (err) {
@@ -42,14 +44,15 @@ export class MLService {
     }
 
     // Heuristic demonstration prediction
-    const isAnomaly = reading.ph < 6.4 || reading.ph > 6.9 || reading.conductivity > 6.5 || reading.density < 1.025;
+    const isAnomaly = reading.ph < 6.4 || reading.ph > 6.9 || reading.conductivity > 6.2 || reading.density < 1.026;
     
     return {
-      prediction: isAnomaly ? 'ADULTERATION_SUSPECTED' : 'PURE',
-      confidence: isAnomaly ? 0.89 : 0.96,
-      score: isAnomaly ? 55.0 : 93.5,
-      warnings: isAnomaly ? ['Parameter anomaly detected by demo heuristic model'] : [],
-      isMock: true
+      prediction: isAnomaly ? 'DEMO_ANOMALY' : 'DEMO_NORMAL',
+      confidence: null, // neutral null for demo mode
+      score: isAnomaly ? 54.5 : 94.8,
+      warnings: isAnomaly ? ['Parameter anomaly detected. Requires secondary laboratory verification.'] : [],
+      isMock: true,
+      disclaimer: 'Demo/engineering assessment only. Not a certified laboratory assay.'
     };
   }
 }

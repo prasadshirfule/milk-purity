@@ -1,22 +1,31 @@
 {
-  "name": "milk-purity-system",
+  "name": "milkguard-system",
   "version": "1.0.0",
-  "description": "Smart Milk Purity Detection and Dairy Management System with ESP32 IoT integration and ML prediction readiness",
+  "description": "MILKGUARD — Smart Milk Quality & Dairy Management System with ESP32 IoT telemetry and ML prediction readiness",
   "scripts": {
+    "dev": "concurrently -n \"BACKEND,FRONTEND\" -c \"blue,green\" \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
     "dev:frontend": "npm run dev --prefix frontend",
     "dev:backend": "npm run dev --prefix backend",
     "build:frontend": "npm run build --prefix frontend",
     "build:backend": "npm run build --prefix backend",
-    "build": "npm run build:frontend && npm run build:backend"
+    "build": "npm run build:backend && npm run build:frontend",
+    "test": "npm run test --prefix backend",
+    "typecheck:frontend": "tsc -p frontend --noEmit",
+    "typecheck:backend": "tsc -p backend --noEmit",
+    "typecheck": "npm run typecheck:backend && npm run typecheck:frontend"
   },
   "keywords": [
+    "milkguard",
     "dairy",
-    "milk-purity",
+    "milk-quality",
     "iot",
     "esp32",
     "dashboard",
     "smart-dairy"
   ],
-  "author": "Smart Dairy Systems",
-  "license": "ISC"
+  "author": "MILKGUARD Systems",
+  "license": "ISC",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
 }

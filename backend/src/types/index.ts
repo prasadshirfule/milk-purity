@@ -67,7 +67,7 @@ export interface IQualityResult {
     conductivity: IParameterAssessment;
   };
   isMlPredicted?: boolean;
-  mlConfidence?: number;
+  mlConfidence?: number | null;
   mlPrediction?: string;
 }
 
@@ -87,7 +87,7 @@ export interface IMilkTest {
   qualityScore: number;
   classification: QualityClassification;
   prediction?: string;
-  confidence?: number;
+  confidence?: number | null;
   warnings: string[];
   result: TestResult;
   ratePerLiter?: number;

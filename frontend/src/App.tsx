@@ -18,6 +18,7 @@ import { Devices } from './pages/Devices';
 import { DeviceDetails } from './pages/DeviceDetails';
 import { Alerts } from './pages/Alerts';
 import { Settings } from './pages/Settings';
+import { About } from './pages/About';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated } = useAuth();
@@ -58,6 +59,7 @@ export const App: React.FC = () => {
                   <Route path="/devices/:id" element={<DeviceDetails />} />
                   <Route path="/alerts" element={<Alerts />} />
                   <Route path="/settings" element={<Settings />} />
+                  <Route path="/about" element={<About />} />
                   <Route path="*" element={<Navigate to="/dashboard" replace />} />
                 </Route>
               </Routes>

@@ -2,17 +2,16 @@ import { ISensorReading, IQualityResult, IParameterAssessment, IThresholdSetting
 import { DEFAULT_THRESHOLDS } from '../config/defaultThresholds';
 
 /**
- * MILK PURITY & QUALITY EVALUATION SERVICE
+ * MILKGUARD QUALITY EVALUATION SERVICE
  * 
- * NOTE: This is a software demonstration scoring engine based on standard dairy science
- * benchmark ranges (pH: 6.5-6.8, Density: 1.026-1.034 g/cm3, Fat: 3.5-6.5%, Conductivity: 4.0-6.0 mS/cm).
- * Certified adulteration assays require physical sensor calibration & verified ML models.
+ * NOTE: Demo/engineering assessment only. Not a certified laboratory assay.
+ * Evaluates multi-sensor telemetry against user-configured reference ranges.
  */
 export class QualityService {
   /**
-   * Evaluate individual sensor parameters against threshold boundaries
+   * Evaluate individual sensor parameters against configured reference ranges
    */
-  private static assessParameter(
+  public static assessParameter(
     val: number,
     min: number,
     max: number,
@@ -20,17 +19,22 @@ export class QualityService {
     name: string
   ): IParameterAssessment {
     let status: ParameterStatus = 'NORMAL';
-    let message = `${name} is optimal (${val} ${unit})`;
+    let message = `${name} within configured reference range (${val} ${unit})`;
 
-    if (val < min * 0.9 || val > max * 1.1) {
+    const range = max - min;
+    const criticalMargin = range > 0 ? range * 0.5 : Math.max(0.1, min * 0.1);
+    const criticalLower = min - criticalMargin;
+    const criticalUpper = max + criticalMargin;
+
+    if (val < criticalLower || val > criticalUpper) {
       status = 'CRITICAL';
-      message = `${name} (${val} ${unit}) is dangerously outside acceptable bounds (${min} - ${max} ${unit})`;
+      message = `${name} (${val} ${unit}) significantly outside reference bounds (${min} – ${max} ${unit}). Requires laboratory verification.`;
     } else if (val < min) {
       status = 'LOW';
-      message = `${name} (${val} ${unit}) is below normal baseline (${min} ${unit})`;
+      message = `${name} (${val} ${unit}) is below configured reference minimum (${min} ${unit})`;
     } else if (val > max) {
       status = 'HIGH';
-      message = `${name} (${val} ${unit}) exceeds normal baseline (${max} ${unit})`;
+      message = `${name} (${val} ${unit}) exceeds configured reference maximum (${max} ${unit})`;
     }
 
     return {
@@ -44,7 +48,7 @@ export class QualityService {
   }
 
   /**
-   * Calculates overall purity quality score (0-100), warnings, recommendations & classification
+   * Calculates overall demonstration quality score (0-100), warnings, recommendations & classification
    */
   public static calculateQuality(
     reading: ISensorReading,
@@ -61,40 +65,40 @@ export class QualityService {
 
     let penalty = 0;
 
-    // 1. pH evaluation (Crucial for freshness / curdling / neutralizers)
+    // 1. pH evaluation
     if (phAssessment.status === 'CRITICAL') {
       penalty += 35;
-      warnings.push(`Extreme pH reading (${reading.ph}). Indicates advanced microbial spoilage or chemical neutralization.`);
+      warnings.push(`Extreme pH reading (${reading.ph}). Parameter anomaly detected. Requires laboratory verification.`);
     } else if (phAssessment.status === 'LOW') {
       penalty += 15;
-      warnings.push(`Low pH (${reading.ph}). Possible onset of souring or bacterial acid buildup.`);
+      warnings.push(`Low pH (${reading.ph}) below configured reference range (${thresholds.phMin}).`);
     } else if (phAssessment.status === 'HIGH') {
       penalty += 15;
-      warnings.push(`High pH (${reading.ph}). Potential mastitis or alkaline neutralizer added.`);
+      warnings.push(`High pH (${reading.ph}) above configured reference range (${thresholds.phMax}).`);
     }
 
-    // 2. Density evaluation (Crucial indicator of water dilution or solids adulteration)
+    // 2. Density evaluation
     if (densityAssessment.status === 'CRITICAL') {
       penalty += 40;
-      warnings.push(`Severe density anomaly (${reading.density} g/mL). Strong indication of water adulteration.`);
+      warnings.push(`Density anomaly detected (${reading.density} g/mL). Deviation from reference range (${thresholds.densityMin} – ${thresholds.densityMax} g/mL).`);
     } else if (densityAssessment.status !== 'NORMAL') {
       penalty += 18;
-      warnings.push(`Density deviation (${reading.density} g/mL). Normal range is ${thresholds.densityMin}-${thresholds.densityMax} g/mL.`);
+      warnings.push(`Density deviation (${reading.density} g/mL). Configured reference range is ${thresholds.densityMin} – ${thresholds.densityMax} g/mL.`);
     }
 
-    // 3. Conductivity evaluation (Detects dissolved ionic salts, urea, detergents)
+    // 3. Conductivity evaluation
     if (condAssessment.status === 'CRITICAL') {
       penalty += 35;
-      warnings.push(`High electrical conductivity (${reading.conductivity} mS/cm). Suspected ionic adulterants (salt/urea/mineral salts).`);
+      warnings.push(`Conductivity outside configured reference range (${reading.conductivity} mS/cm). Secondary laboratory testing advised.`);
     } else if (condAssessment.status !== 'NORMAL') {
       penalty += 12;
-      warnings.push(`Conductivity outside standard profile (${reading.conductivity} mS/cm).`);
+      warnings.push(`Conductivity deviation (${reading.conductivity} mS/cm) from baseline profile.`);
     }
 
     // 4. Fat evaluation
     if (fatAssessment.status === 'CRITICAL') {
       penalty += 25;
-      warnings.push(`Fat content (${reading.fat}%) drastically sub-standard.`);
+      warnings.push(`Fat content (${reading.fat}%) below configured statutory quality threshold.`);
     } else if (fatAssessment.status === 'LOW') {
       penalty += 10;
       warnings.push(`Fat percentage (${reading.fat}%) below target standard.`);
@@ -102,7 +106,7 @@ export class QualityService {
 
     // 5. Temperature check
     if (tempAssessment.status !== 'NORMAL') {
-      warnings.push(`Milk intake temperature is ${reading.temperature}°C. Rapid chilling advised.`);
+      warnings.push(`Intake temperature (${reading.temperature} °C) outside optimal chilling range (${thresholds.tempMin} – ${thresholds.tempMax} °C).`);
     }
 
     // Calculate score
@@ -116,19 +120,19 @@ export class QualityService {
     if (score >= thresholds.scoreExcellentMin) {
       classification = 'EXCELLENT';
       result = 'ACCEPTED';
-      recommendations.push('Meets Grade-A quality standards. Approved for premium dairy processing.');
+      recommendations.push('Parameters align with configured Grade-A reference standards. Approved for intake.');
     } else if (score >= thresholds.scoreGoodMin) {
       classification = 'GOOD';
       result = 'ACCEPTED';
-      recommendations.push('Standard commercial quality. Approved for normal processing.');
+      recommendations.push('Parameters within standard commercial reference tolerance. Approved for processing.');
     } else if (score >= thresholds.scoreSuspiciousMin) {
       classification = 'SUSPICIOUS';
       result = 'WARNING';
-      recommendations.push('Requires secondary laboratory verification before bulk tank blending.');
+      recommendations.push('Quality parameters borderline. Secondary laboratory verification advised before bulk blending.');
     } else {
       classification = 'REJECT';
       result = 'REJECTED';
-      recommendations.push('Batch rejected. Fails dairy quality and safety thresholds.');
+      recommendations.push('Batch flagged for parameter deviation. Fails configured quality thresholds.');
     }
 
     return {
@@ -145,12 +149,13 @@ export class QualityService {
         temperature: tempAssessment
       },
       isMlPredicted: false,
-      mlConfidence: 0.95
+      mlConfidence: undefined
     };
   }
 
   /**
-   * Calculate purchase price per liter based on fat content and quality score
+   * Calculate demo procurement price per liter based on fat content and quality score
+   * Note: This is an illustrative demo calculation in Indian Rupees (₹).
    */
   public static calculatePricing(
     fat: number,
