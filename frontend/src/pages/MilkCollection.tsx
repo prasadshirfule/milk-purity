@@ -62,7 +62,7 @@ export const MilkCollection: React.FC = () => {
     showToast('Collection ledger exported as CSV', 'success');
   };
 
-  const handleManualSubmit = (e: React.FormEvent) => {
+  const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const farmer = farmers.find((f) => f.farmerId === manualFarmerId);
     if (!farmer) {
@@ -70,26 +70,30 @@ export const MilkCollection: React.FC = () => {
       return;
     }
 
-    addMilkTest({
-      farmerId: farmer.farmerId,
-      farmerName: farmer.name,
-      deviceId: 'ESP32-MILK-001',
-      quantity: Number(manualQty),
-      sensorReading: {
+    try {
+      await addMilkTest({
+        farmerId: farmer.farmerId,
+        farmerName: farmer.name,
         deviceId: 'ESP32-MILK-001',
-        timestamp: new Date().toISOString(),
-        temperature: 24.0,
-        ph: 6.64,
-        fat: Number(manualFat),
-        density: 1.029,
-        conductivity: 5.0,
-        milkLevel: Number(manualQty)
-      },
-      notes: 'Manual entry via collection ledger'
-    });
+        quantity: Number(manualQty),
+        sensorReading: {
+          deviceId: 'ESP32-MILK-001',
+          timestamp: new Date().toISOString(),
+          temperature: 24.0,
+          ph: 6.64,
+          fat: Number(manualFat),
+          density: 1.029,
+          conductivity: 5.0,
+          milkLevel: Number(manualQty)
+        },
+        notes: 'Manual entry via collection ledger'
+      });
 
-    setIsManualModalOpen(false);
-    showToast('Manual collection recorded successfully', 'success');
+      setIsManualModalOpen(false);
+      showToast('Manual collection recorded successfully', 'success');
+    } catch (err: any) {
+      showToast(err?.message || 'Failed to record manual collection', 'error');
+    }
   };
 
   return (

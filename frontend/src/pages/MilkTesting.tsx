@@ -68,7 +68,7 @@ export const MilkTesting: React.FC = () => {
   );
   const totalAmount = Number((quantity * currentRate).toFixed(2));
 
-  const executeDecision = (decision: 'ACCEPT' | 'REJECT', reason?: string) => {
+  const executeDecision = async (decision: 'ACCEPT' | 'REJECT', reason?: string) => {
     if (!selectedFarmerId) {
       showToast('Please select a delivering farmer first', 'error');
       return;
@@ -80,27 +80,31 @@ export const MilkTesting: React.FC = () => {
 
     stopTest();
 
-    const result = addMilkTest({
-      farmerId: selectedFarmerId,
-      farmerName: selectedFarmer?.name,
-      deviceId,
-      quantity,
-      sensorReading: reading,
-      operatorDecision: decision,
-      overrideReason: reason,
-      notes: decision === 'REJECT' 
-        ? 'Rejected by dock operator.' 
-        : reason 
-        ? `Accepted under operator override: ${reason}` 
-        : 'Accepted into primary bulk storage.'
-    });
+    try {
+      const result = await addMilkTest({
+        farmerId: selectedFarmerId,
+        farmerName: selectedFarmer?.name,
+        deviceId,
+        quantity,
+        sensorReading: reading,
+        operatorDecision: decision,
+        overrideReason: reason,
+        notes: decision === 'REJECT' 
+          ? 'Rejected by dock operator.' 
+          : reason 
+          ? `Accepted under operator override: ${reason}` 
+          : 'Accepted into primary bulk storage.'
+      });
 
-    setTestSuccessModal({
-      decision,
-      test: result.test,
-      quality: result.quality,
-      collection: result.collection
-    });
+      setTestSuccessModal({
+        decision,
+        test: result.test,
+        quality: result.quality,
+        collection: result.collection
+      });
+    } catch (err: any) {
+      showToast(err?.message || 'Failed to record milk test', 'error');
+    }
   };
 
   const handleDecision = (decision: 'ACCEPT' | 'REJECT') => {
@@ -377,9 +381,13 @@ export const MilkTesting: React.FC = () => {
       <FarmerModal
         isOpen={isFarmerModalOpen}
         onClose={() => setIsFarmerModalOpen(false)}
-        onSubmit={(data) => {
-          const created = addFarmer(data);
-          setSelectedFarmerId(created.farmerId);
+        onSubmit={async (data) => {
+          try {
+            const created = await addFarmer(data);
+            setSelectedFarmerId(created.farmerId);
+          } catch (err: any) {
+            showToast(err?.message || 'Failed to add farmer', 'error');
+          }
         }}
       />
 

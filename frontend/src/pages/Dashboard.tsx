@@ -43,7 +43,7 @@ import {
 
 export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { summary, tests, collections } = useDemoData();
+  const { isDemoMode, setDemoMode, connectionError, refreshData, summary, tests, collections } = useDemoData();
   const { settings } = useSettings();
 
   const [timeFilter, setTimeFilter] = useState<'today' | '7days' | '30days'>('7days');
@@ -88,12 +88,17 @@ export const Dashboard: React.FC = () => {
     const suspicious = tests.filter((t) => t.classification === 'SUSPICIOUS').length;
     const reject = tests.filter((t) => t.classification === 'REJECT').length;
 
+    const total = excellent + good + suspicious + reject;
+    if (total === 0) {
+      return [{ name: 'No Tests Recorded', value: 1, color: '#cbd5e1' }];
+    }
+
     return [
-      { name: 'Excellent (Grade A)', value: excellent || 18, color: '#0d9488' },
-      { name: 'Good (Standard)', value: good || 8, color: '#3b82f6' },
-      { name: 'Suspicious (Warning)', value: suspicious || 2, color: '#f59e0b' },
-      { name: 'Rejected (Anomaly)', value: reject || 1, color: '#e11d48' }
-    ];
+      { name: 'Excellent (Optimal)', value: excellent, color: '#0d9488' },
+      { name: 'Good (Standard)', value: good, color: '#3b82f6' },
+      { name: 'Suspicious (Warning)', value: suspicious, color: '#f59e0b' },
+      { name: 'Rejected (Anomaly)', value: reject, color: '#e11d48' }
+    ].filter((item) => item.value > 0);
   }, [tests]);
 
   const recentTests = tests.slice(0, 7);
@@ -113,6 +118,43 @@ export const Dashboard: React.FC = () => {
 
   return (
     <div className="space-y-6 pb-12">
+      {/* Backend Offline Warning Banner (Connected Mode Only) */}
+      {!isDemoMode && connectionError && (
+        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-rose-100 text-rose-600 shrink-0">
+              <Activity className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-rose-800">
+                Connected Mode: Backend API Offline
+              </h4>
+              <p className="text-xs text-rose-700/90 mt-0.5">
+                {connectionError} Ensure the Express server is running on port 5000, or switch back to Demo Mode.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => refreshData()}
+              className="border-rose-300 text-rose-800 hover:bg-rose-100"
+            >
+              Retry Connection
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => setDemoMode(true)}
+              className="bg-rose-600 hover:bg-rose-700"
+            >
+              Switch to Demo Mode
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Quick Action Navigation Bar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 p-4 rounded-2xl bg-gradient-to-r from-dairy-900 via-slate-900 to-slate-900 text-white shadow-md">
         <div>

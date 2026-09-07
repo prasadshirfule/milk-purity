@@ -12,7 +12,7 @@ export interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ onMenuToggle }) => {
   const { user, logout } = useAuth();
-  const { isDemoMode, summary } = useDemoData();
+  const { isDemoMode, setDemoMode, connectionError, isLoading, summary } = useDemoData();
   const location = useLocation();
 
   const getPageTitle = (path: string) => {
@@ -79,12 +79,37 @@ export const Header: React.FC<HeaderProps> = ({ onMenuToggle }) => {
           </span>
         </div>
 
-        {/* Demo Mode Badge */}
-        {isDemoMode && (
-          <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-bold uppercase tracking-wider">
+        {/* Mode Switcher Badge (Demo vs Connected API) */}
+        {isDemoMode ? (
+          <button
+            onClick={() => setDemoMode(false)}
+            title="Click to switch to Connected Mode (Live Express Backend API)"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 text-[11px] font-bold uppercase tracking-wider transition-colors cursor-pointer"
+          >
             <Sparkles className="w-3 h-3 text-amber-500" />
             <span className="hidden sm:inline">DEMO MODE</span>
-          </div>
+          </button>
+        ) : (
+          <button
+            onClick={() => setDemoMode(true)}
+            title="Click to switch to Demo Mode (Local Simulation)"
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-bold uppercase tracking-wider transition-colors cursor-pointer ${
+              connectionError
+                ? 'bg-rose-50 hover:bg-rose-100 border-rose-200 text-rose-800'
+                : 'bg-emerald-50 hover:bg-emerald-100 border-emerald-200 text-emerald-800'
+            }`}
+          >
+            {isLoading ? (
+              <span className="w-2 h-2 rounded-full bg-dairy-500 animate-ping" />
+            ) : connectionError ? (
+              <span className="w-2 h-2 rounded-full bg-rose-500" />
+            ) : (
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            )}
+            <span className="hidden sm:inline">
+              {isLoading ? 'CONNECTING...' : connectionError ? 'API OFFLINE' : 'CONNECTED API'}
+            </span>
+          </button>
         )}
 
         {/* Notifications Dropdown */}

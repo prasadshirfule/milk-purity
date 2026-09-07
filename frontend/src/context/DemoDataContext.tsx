@@ -14,25 +14,27 @@ import {
   INITIAL_TESTS,
   INITIAL_COLLECTIONS,
   INITIAL_DEVICES,
-  INITIAL_ALERTS,
-  INITIAL_SUMMARY
+  INITIAL_ALERTS
 } from '../data/mockData';
 import { QualityCalculator } from '../services/qualityCalculator';
+import { api } from '../services/api';
 import { useSettings } from './SettingsContext';
 import { useToast } from './ToastContext';
 
 interface DemoDataContextType {
   isDemoMode: boolean;
   setDemoMode: (val: boolean) => void;
+  isLoading: boolean;
+  connectionError: string | null;
   farmers: Farmer[];
   tests: MilkTest[];
   collections: MilkCollection[];
   devices: Device[];
   alerts: Alert[];
   summary: DashboardSummary;
-  addFarmer: (farmer: Partial<Farmer>) => Farmer;
-  updateFarmer: (id: string, farmer: Partial<Farmer>) => Farmer | null;
-  deleteFarmer: (id: string) => boolean;
+  addFarmer: (farmer: Partial<Farmer>) => Promise<Farmer>;
+  updateFarmer: (id: string, farmer: Partial<Farmer>) => Promise<Farmer | null>;
+  deleteFarmer: (id: string) => Promise<boolean>;
   addMilkTest: (testData: {
     farmerId: string;
     farmerName?: string;
@@ -42,10 +44,10 @@ interface DemoDataContextType {
     operatorDecision?: 'ACCEPT' | 'REJECT';
     overrideReason?: string;
     notes?: string;
-  }) => { test: MilkTest; quality: QualityResult; collection?: MilkCollection };
-  updateAlertStatus: (id: string, status: 'ACTIVE' | 'RESOLVED' | 'DISMISSED') => void;
-  triggerDeviceAction: (deviceId: string, action: 'RESTART' | 'CALIBRATE' | 'CONNECT' | 'DISCONNECT') => void;
-  refreshData: () => void;
+  }) => Promise<{ test: MilkTest; quality: QualityResult; collection?: MilkCollection }>;
+  updateAlertStatus: (id: string, status: 'ACTIVE' | 'RESOLVED' | 'DISMISSED') => Promise<void>;
+  triggerDeviceAction: (deviceId: string, action: 'RESTART' | 'CALIBRATE' | 'CONNECT' | 'DISCONNECT') => Promise<void>;
+  refreshData: () => Promise<void>;
 }
 
 const safeJsonParse = <T,>(key: string, fallback: T): T => {
@@ -58,70 +60,93 @@ const safeJsonParse = <T,>(key: string, fallback: T): T => {
   }
 };
 
+const emptyFallbackSummary: DashboardSummary = {
+  todayCollectionLiters: 0,
+  collectionGrowthPercent: 0,
+  totalTestsToday: 0,
+  acceptedCount: 0,
+  warningCount: 0,
+  rejectedCount: 0,
+  averagePurityScore: 0,
+  activeFarmers: 0,
+  deviceStatus: 'DISCONNECTED',
+  primaryDeviceName: 'ESP32-MILK-001',
+  activeAlertsCount: 0
+};
+
 const DemoDataContext = createContext<DemoDataContextType | undefined>(undefined);
 
 export const DemoDataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { settings } = useSettings();
   const { showToast } = useToast();
 
-  const [isDemoMode, setIsDemoMode] = useState<boolean>(true);
-  const [farmers, setFarmers] = useState<Farmer[]>(() => safeJsonParse('milk_farmers', INITIAL_FARMERS));
-  const [tests, setTests] = useState<MilkTest[]>(() => safeJsonParse('milk_tests', INITIAL_TESTS));
-  const [collections, setCollections] = useState<MilkCollection[]>(() => safeJsonParse('milk_collections', INITIAL_COLLECTIONS));
-  const [devices, setDevices] = useState<Device[]>(() => safeJsonParse('milk_devices', INITIAL_DEVICES));
-  const [alerts, setAlerts] = useState<Alert[]>(() => safeJsonParse('milk_alerts', INITIAL_ALERTS));
+  const [isDemoMode, setIsDemoModeState] = useState<boolean>(() => {
+    const saved = localStorage.getItem('milkguard_demo_mode');
+    return saved !== null ? saved === 'true' : true;
+  });
 
-  // Keep local storage synchronized
-  useEffect(() => {
-    try {
-      localStorage.setItem('milk_farmers', JSON.stringify(farmers));
-    } catch (e) {
-      console.warn('Failed to save farmers to localStorage', e);
-    }
-  }, [farmers]);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
 
-  useEffect(() => {
-    try {
-      localStorage.setItem('milk_tests', JSON.stringify(tests));
-    } catch (e) {
-      console.warn('Failed to save tests to localStorage', e);
-    }
-  }, [tests]);
+  // -------------------------------------------------------------
+  // DEMO MODE STATE (LocalStorage Persisted)
+  // -------------------------------------------------------------
+  const [demoFarmers, setDemoFarmers] = useState<Farmer[]>(() => safeJsonParse('milk_farmers', INITIAL_FARMERS));
+  const [demoTests, setDemoTests] = useState<MilkTest[]>(() => safeJsonParse('milk_tests', INITIAL_TESTS));
+  const [demoCollections, setDemoCollections] = useState<MilkCollection[]>(() => safeJsonParse('milk_collections', INITIAL_COLLECTIONS));
+  const [demoDevices, setDemoDevices] = useState<Device[]>(() => safeJsonParse('milk_devices', INITIAL_DEVICES));
+  const [demoAlerts, setDemoAlerts] = useState<Alert[]>(() => safeJsonParse('milk_alerts', INITIAL_ALERTS));
 
   useEffect(() => {
     try {
-      localStorage.setItem('milk_collections', JSON.stringify(collections));
+      localStorage.setItem('milk_farmers', JSON.stringify(demoFarmers));
     } catch (e) {
-      console.warn('Failed to save collections to localStorage', e);
+      console.warn('Failed to save demo farmers to localStorage', e);
     }
-  }, [collections]);
+  }, [demoFarmers]);
 
   useEffect(() => {
     try {
-      localStorage.setItem('milk_devices', JSON.stringify(devices));
+      localStorage.setItem('milk_tests', JSON.stringify(demoTests));
     } catch (e) {
-      console.warn('Failed to save devices to localStorage', e);
+      console.warn('Failed to save demo tests to localStorage', e);
     }
-  }, [devices]);
+  }, [demoTests]);
 
   useEffect(() => {
     try {
-      localStorage.setItem('milk_alerts', JSON.stringify(alerts));
+      localStorage.setItem('milk_collections', JSON.stringify(demoCollections));
     } catch (e) {
-      console.warn('Failed to save alerts to localStorage', e);
+      console.warn('Failed to save demo collections to localStorage', e);
     }
-  }, [alerts]);
+  }, [demoCollections]);
 
-  // Compute live dynamic dashboard summary strictly from today's demo records
-  const summary: DashboardSummary = React.useMemo(() => {
+  useEffect(() => {
+    try {
+      localStorage.setItem('milk_devices', JSON.stringify(demoDevices));
+    } catch (e) {
+      console.warn('Failed to save demo devices to localStorage', e);
+    }
+  }, [demoDevices]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('milk_alerts', JSON.stringify(demoAlerts));
+    } catch (e) {
+      console.warn('Failed to save demo alerts to localStorage', e);
+    }
+  }, [demoAlerts]);
+
+  // Demo Dynamic Dashboard Calculations
+  const demoSummary: DashboardSummary = React.useMemo(() => {
     const today = new Date();
     const todayStr = today.toDateString();
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
     const yesterdayStr = yesterday.toDateString();
 
-    const todayTests = tests.filter((t) => new Date(t.timestamp).toDateString() === todayStr);
-    const yesterdayTests = tests.filter((t) => new Date(t.timestamp).toDateString() === yesterdayStr);
+    const todayTests = demoTests.filter((t) => new Date(t.timestamp).toDateString() === todayStr);
+    const yesterdayTests = demoTests.filter((t) => new Date(t.timestamp).toDateString() === yesterdayStr);
 
     const acceptedCount = todayTests.filter((t) => t.result === 'ACCEPTED').length;
     const warningCount = todayTests.filter((t) => t.result === 'WARNING').length;
@@ -151,9 +176,9 @@ export const DemoDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         ? Number((todayTests.reduce((sum, t) => sum + (t.qualityScore || 0), 0) / todayTests.length).toFixed(1))
         : 0;
 
-    const activeFarmers = farmers.filter((f) => f.status === 'ACTIVE').length;
-    const primaryDevice = devices.find((d) => d.deviceId === 'ESP32-MILK-001') || devices[0];
-    const activeAlertsCount = alerts.filter((a) => a.status === 'ACTIVE').length;
+    const activeFarmers = demoFarmers.filter((f) => f.status === 'ACTIVE').length;
+    const primaryDevice = demoDevices.find((d) => d.deviceId === 'ESP32-MILK-001') || demoDevices[0];
+    const activeAlertsCount = demoAlerts.filter((a) => a.status === 'ACTIVE').length;
 
     return {
       todayCollectionLiters: Number(todayCollectionLiters.toFixed(1)),
@@ -168,54 +193,188 @@ export const DemoDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       primaryDeviceName: primaryDevice ? primaryDevice.name : 'ESP32-MILK-001',
       activeAlertsCount
     };
-  }, [tests, farmers, devices, alerts]);
+  }, [demoTests, demoFarmers, demoDevices, demoAlerts]);
 
-  // Farmer CRUD
-  const addFarmer = (data: Partial<Farmer>): Farmer => {
-    const newFarmer: Farmer = {
-      farmerId: data.farmerId || `FMR-${1000 + farmers.length + 1}`,
-      name: data.name || 'New Farmer',
-      mobile: data.mobile || '',
-      village: data.village || '',
-      address: data.address || '',
-      animalType: data.animalType || 'COW',
-      notes: data.notes || '',
-      status: data.status || 'ACTIVE',
-      totalMilkSupplied: 0,
-      totalCollections: 0,
-      averageQualityScore: 0,
-      createdAt: new Date().toISOString()
-    };
-    setFarmers((prev) => [newFarmer, ...prev]);
-    showToast(`Farmer ${newFarmer.name} (${newFarmer.farmerId}) registered successfully!`, 'success');
-    return newFarmer;
-  };
+  // -------------------------------------------------------------
+  // CONNECTED MODE STATE (Loaded from Backend Express REST API)
+  // -------------------------------------------------------------
+  const [connectedFarmers, setConnectedFarmers] = useState<Farmer[]>([]);
+  const [connectedTests, setConnectedTests] = useState<MilkTest[]>([]);
+  const [connectedCollections, setConnectedCollections] = useState<MilkCollection[]>([]);
+  const [connectedDevices, setConnectedDevices] = useState<Device[]>([]);
+  const [connectedAlerts, setConnectedAlerts] = useState<Alert[]>([]);
+  const [connectedSummary, setConnectedSummary] = useState<DashboardSummary | null>(null);
 
-  const updateFarmer = (id: string, data: Partial<Farmer>): Farmer | null => {
-    let updated: Farmer | null = null;
-    setFarmers((prev) =>
-      prev.map((f) => {
-        if (f.farmerId === id) {
-          updated = { ...f, ...data, updatedAt: new Date().toISOString() };
-          return updated;
-        }
-        return f;
-      })
-    );
-    if (updated) {
-      showToast(`Farmer record updated successfully`, 'success');
+  const fetchConnectedData = useCallback(async () => {
+    setIsLoading(true);
+    setConnectionError(null);
+    try {
+      const [sumRes, farmersRes, testsRes, collRes, devRes, alertsRes] = await Promise.all([
+        api.getSummary(),
+        api.getFarmers(),
+        api.getTests(),
+        api.getCollections(),
+        api.getDevices(),
+        api.getAlerts()
+      ]);
+
+      if (!sumRes.success && !farmersRes.success && !testsRes.success) {
+        const errMsg = sumRes.error || farmersRes.error || 'Backend unavailable. Connected Mode could not load live data.';
+        setConnectionError(errMsg);
+        setConnectedSummary(null);
+        setConnectedFarmers([]);
+        setConnectedTests([]);
+        setConnectedCollections([]);
+        setConnectedDevices([]);
+        setConnectedAlerts([]);
+        showToast(errMsg, 'error');
+        return;
+      }
+
+      if (sumRes.success && sumRes.data) {
+        setConnectedSummary(sumRes.data);
+      }
+      if (farmersRes.success && Array.isArray(farmersRes.data)) {
+        setConnectedFarmers(farmersRes.data);
+      }
+      if (testsRes.success && Array.isArray(testsRes.data)) {
+        setConnectedTests(testsRes.data);
+      }
+      if (collRes.success && Array.isArray(collRes.data)) {
+        setConnectedCollections(collRes.data);
+      }
+      if (devRes.success && Array.isArray(devRes.data)) {
+        setConnectedDevices(devRes.data);
+      }
+      if (alertsRes.success && Array.isArray(alertsRes.data)) {
+        setConnectedAlerts(alertsRes.data);
+      }
+      setConnectionError(null);
+    } catch (err: any) {
+      const msg = err?.message || 'Backend unavailable. Connected Mode could not load live data.';
+      setConnectionError(msg);
+      setConnectedSummary(null);
+      setConnectedFarmers([]);
+      setConnectedTests([]);
+      setConnectedCollections([]);
+      setConnectedDevices([]);
+      setConnectedAlerts([]);
+      showToast(msg, 'error');
+    } finally {
+      setIsLoading(false);
     }
-    return updated;
+  }, [showToast]);
+
+  // Load connected data when switching to connected mode
+  useEffect(() => {
+    if (!isDemoMode) {
+      fetchConnectedData();
+    }
+  }, [isDemoMode, fetchConnectedData]);
+
+  const setDemoMode = useCallback(
+    (val: boolean) => {
+      setIsDemoModeState(val);
+      try {
+        localStorage.setItem('milkguard_demo_mode', val ? 'true' : 'false');
+      } catch (e) {
+        console.warn('Failed to save mode preference', e);
+      }
+      if (!val) {
+        showToast('Switched to Connected Mode (Backend API)', 'info');
+        fetchConnectedData();
+      } else {
+        setConnectionError(null);
+        showToast('Switched to Demo Mode (Local Simulation)', 'info');
+      }
+    },
+    [fetchConnectedData, showToast]
+  );
+
+  // -------------------------------------------------------------
+  // MODE-AWARE CRUD OPERATIONS
+  // -------------------------------------------------------------
+
+  const addFarmer = async (data: Partial<Farmer>): Promise<Farmer> => {
+    if (isDemoMode) {
+      const newFarmer: Farmer = {
+        farmerId: data.farmerId || `FMR-${1000 + demoFarmers.length + 1}`,
+        name: data.name || 'New Farmer',
+        mobile: data.mobile || '',
+        village: data.village || '',
+        address: data.address || '',
+        animalType: data.animalType || 'COW',
+        notes: data.notes || '',
+        status: data.status || 'ACTIVE',
+        totalMilkSupplied: 0,
+        totalCollections: 0,
+        averageQualityScore: 0,
+        createdAt: new Date().toISOString()
+      };
+      setDemoFarmers((prev) => [newFarmer, ...prev]);
+      showToast(`Farmer ${newFarmer.name} (${newFarmer.farmerId}) registered successfully!`, 'success');
+      return newFarmer;
+    } else {
+      const res = await api.createFarmer(data);
+      if (!res.success || !res.data) {
+        const err = res.error || 'Failed to create farmer on backend';
+        showToast(err, 'error');
+        throw new Error(err);
+      }
+      setConnectedFarmers((prev) => [res.data!, ...prev]);
+      showToast(`Farmer ${res.data.name} (${res.data.farmerId}) saved to backend!`, 'success');
+      return res.data;
+    }
   };
 
-  const deleteFarmer = (id: string): boolean => {
-    setFarmers((prev) => prev.filter((f) => f.farmerId !== id));
-    showToast(`Farmer removed successfully`, 'info');
-    return true;
+  const updateFarmer = async (id: string, data: Partial<Farmer>): Promise<Farmer | null> => {
+    if (isDemoMode) {
+      let updated: Farmer | null = null;
+      setDemoFarmers((prev) =>
+        prev.map((f) => {
+          if (f.farmerId === id) {
+            updated = { ...f, ...data, updatedAt: new Date().toISOString() };
+            return updated;
+          }
+          return f;
+        })
+      );
+      if (updated) {
+        showToast(`Farmer record updated successfully`, 'success');
+      }
+      return updated;
+    } else {
+      const res = await api.updateFarmer(id, data);
+      if (!res.success || !res.data) {
+        const err = res.error || 'Failed to update farmer on backend';
+        showToast(err, 'error');
+        throw new Error(err);
+      }
+      setConnectedFarmers((prev) => prev.map((f) => (f.farmerId === id ? res.data! : f)));
+      showToast(`Farmer record updated on backend`, 'success');
+      return res.data;
+    }
   };
 
-  // Milk Testing Engine
-  const addMilkTest = ({
+  const deleteFarmer = async (id: string): Promise<boolean> => {
+    if (isDemoMode) {
+      setDemoFarmers((prev) => prev.filter((f) => f.farmerId !== id));
+      showToast(`Farmer removed successfully`, 'info');
+      return true;
+    } else {
+      const res = await api.deleteFarmer(id);
+      if (!res.success) {
+        const err = res.error || 'Failed to delete farmer on backend';
+        showToast(err, 'error');
+        throw new Error(err);
+      }
+      setConnectedFarmers((prev) => prev.filter((f) => f.farmerId !== id));
+      showToast(`Farmer record deactivated on backend`, 'info');
+      return true;
+    }
+  };
+
+  const addMilkTest = async ({
     farmerId,
     farmerName,
     deviceId,
@@ -233,186 +392,261 @@ export const DemoDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     operatorDecision?: 'ACCEPT' | 'REJECT';
     overrideReason?: string;
     notes?: string;
-  }) => {
-    const quality = QualityCalculator.calculate(sensorReading, settings.thresholds);
-    const recommendedResult = quality.result; // 'ACCEPTED' | 'WARNING' | 'REJECTED'
+  }): Promise<{ test: MilkTest; quality: QualityResult; collection?: MilkCollection }> => {
+    if (isDemoMode) {
+      const quality = QualityCalculator.calculate(sensorReading, settings.thresholds);
+      const recommendedResult = quality.result;
 
-    // Operator decision default depends on recommendedResult:
-    // ACCEPTED -> default ACCEPT
-    // WARNING -> default ACCEPT (can be rejected)
-    // REJECTED -> default REJECT (must explicitly override to ACCEPT)
-    let decision: 'ACCEPT' | 'REJECT';
-    if (operatorDecision === 'ACCEPT' || operatorDecision === 'REJECT') {
-      decision = operatorDecision;
-    } else {
-      decision = recommendedResult === 'REJECTED' ? 'REJECT' : 'ACCEPT';
-    }
-
-    const trimmedOverrideReason = typeof overrideReason === 'string' ? overrideReason.trim() : '';
-
-    // If operator overrides a REJECTED recommendation to ACCEPT, overrideReason is strictly required
-    if (recommendedResult === 'REJECTED' && decision === 'ACCEPT') {
-      if (!trimmedOverrideReason) {
-        showToast('Manual override of a rejected batch requires a non-empty justification', 'error');
-        throw new Error('Manual override of a rejected batch requires a non-empty overrideReason');
-      }
-    }
-
-    let finalResult: 'ACCEPTED' | 'WARNING' | 'REJECTED' = 'REJECTED';
-    let ratePerLiter = 0;
-    let totalAmount = 0;
-
-    if (decision === 'REJECT') {
-      finalResult = 'REJECTED';
-      ratePerLiter = 0;
-      totalAmount = 0;
-    } else {
-      if (recommendedResult === 'REJECTED') {
-        finalResult = 'ACCEPTED';
-        ratePerLiter = QualityCalculator.calculateRate(sensorReading.fat, quality.score, settings.thresholds);
-        totalAmount = Number((quantity * ratePerLiter).toFixed(2));
-      } else if (recommendedResult === 'WARNING') {
-        finalResult = 'WARNING';
-        ratePerLiter = QualityCalculator.calculateRate(sensorReading.fat, quality.score, settings.thresholds);
-        totalAmount = Number((quantity * ratePerLiter).toFixed(2));
+      let decision: 'ACCEPT' | 'REJECT';
+      if (operatorDecision === 'ACCEPT' || operatorDecision === 'REJECT') {
+        decision = operatorDecision;
       } else {
-        finalResult = 'ACCEPTED';
-        ratePerLiter = QualityCalculator.calculateRate(sensorReading.fat, quality.score, settings.thresholds);
-        totalAmount = Number((quantity * ratePerLiter).toFixed(2));
+        decision = recommendedResult === 'REJECTED' ? 'REJECT' : 'ACCEPT';
       }
-    }
 
-    const actualFarmerName = farmerName || farmers.find((f) => f.farmerId === farmerId)?.name || 'Farmer';
-    const testId = `TEST-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+      const trimmedOverrideReason = typeof overrideReason === 'string' ? overrideReason.trim() : '';
 
-    const newTest: MilkTest = {
-      testId,
-      farmerId,
-      farmerName: actualFarmerName,
-      deviceId,
-      quantity,
-      timestamp: new Date().toISOString(),
-      temperature: sensorReading.temperature,
-      ph: sensorReading.ph,
-      fat: sensorReading.fat,
-      density: sensorReading.density,
-      conductivity: sensorReading.conductivity,
-      milkLevel: quantity,
-      qualityScore: quality.score,
-      classification: quality.classification,
-      recommendedResult,
-      operatorDecision: decision,
-      overrideReason: trimmedOverrideReason || undefined,
-      prediction: finalResult === 'REJECTED' ? 'DEMO_ANOMALY' : 'DEMO_NORMAL',
-      confidence: null,
-      warnings: quality.warnings,
-      result: finalResult,
-      ratePerLiter,
-      totalAmount,
-      notes
-    };
+      if (recommendedResult === 'REJECTED' && decision === 'ACCEPT') {
+        if (!trimmedOverrideReason) {
+          showToast('Manual override of a rejected batch requires a non-empty justification', 'error');
+          throw new Error('Manual override of a rejected batch requires a non-empty overrideReason');
+        }
+      }
 
-    setTests((prev) => [newTest, ...prev]);
+      let finalResult: 'ACCEPTED' | 'WARNING' | 'REJECTED' = 'REJECTED';
+      let ratePerLiter = 0;
+      let totalAmount = 0;
 
-    let createdCollection: MilkCollection | undefined;
+      if (decision === 'REJECT') {
+        finalResult = 'REJECTED';
+        ratePerLiter = 0;
+        totalAmount = 0;
+      } else {
+        if (recommendedResult === 'REJECTED') {
+          finalResult = 'ACCEPTED';
+          ratePerLiter = QualityCalculator.calculateRate(sensorReading.fat, quality.score, settings.thresholds);
+          totalAmount = Number((quantity * ratePerLiter).toFixed(2));
+        } else if (recommendedResult === 'WARNING') {
+          finalResult = 'WARNING';
+          ratePerLiter = QualityCalculator.calculateRate(sensorReading.fat, quality.score, settings.thresholds);
+          totalAmount = Number((quantity * ratePerLiter).toFixed(2));
+        } else {
+          finalResult = 'ACCEPTED';
+          ratePerLiter = QualityCalculator.calculateRate(sensorReading.fat, quality.score, settings.thresholds);
+          totalAmount = Number((quantity * ratePerLiter).toFixed(2));
+        }
+      }
 
-    // Record collection and update farmer metrics ONLY if final result is NOT rejected
-    if (newTest.result !== 'REJECTED') {
-      createdCollection = {
-        collectionId: `COL-${testId.replace('TEST-', '')}`,
-        farmerId: newTest.farmerId,
+      const actualFarmerName = farmerName || demoFarmers.find((f) => f.farmerId === farmerId)?.name || 'Farmer';
+      const testId = `TEST-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+
+      const newTest: MilkTest = {
+        testId,
+        farmerId,
         farmerName: actualFarmerName,
-        testId: newTest.testId,
-        quantity: newTest.quantity,
-        fat: newTest.fat,
-        rate: ratePerLiter,
+        deviceId,
+        quantity,
+        timestamp: new Date().toISOString(),
+        temperature: sensorReading.temperature,
+        ph: sensorReading.ph,
+        fat: sensorReading.fat,
+        density: sensorReading.density,
+        conductivity: sensorReading.conductivity,
+        milkLevel: quantity,
+        qualityScore: quality.score,
+        classification: quality.classification,
+        recommendedResult,
+        operatorDecision: decision,
+        overrideReason: trimmedOverrideReason || undefined,
+        prediction: finalResult === 'REJECTED' ? 'DEMO_ANOMALY' : 'DEMO_NORMAL',
+        confidence: null,
+        warnings: quality.warnings,
+        result: finalResult,
+        ratePerLiter,
         totalAmount,
-        qualityScore: newTest.qualityScore,
-        result: newTest.result,
-        timestamp: newTest.timestamp,
-        paymentStatus: 'PAID'
+        notes
       };
-      setCollections((prev) => [createdCollection!, ...prev]);
 
-      // Update farmer metrics
-      setFarmers((prev) =>
-        prev.map((f) => {
-          if (f.farmerId === farmerId) {
-            const prevSupplied = f.totalMilkSupplied || 0;
-            const prevCount = f.totalCollections || 0;
-            const prevScore = f.averageQualityScore || 90;
-            const newCount = prevCount + 1;
-            const newScore = Number(((prevScore * prevCount + quality.score) / newCount).toFixed(1));
-            return {
-              ...f,
-              totalMilkSupplied: Number((prevSupplied + quantity).toFixed(2)),
-              totalCollections: newCount,
-              averageQualityScore: newScore
-            };
+      setDemoTests((prev) => [newTest, ...prev]);
+
+      let createdCollection: MilkCollection | undefined;
+
+      if (newTest.result !== 'REJECTED') {
+        createdCollection = {
+          collectionId: `COL-${testId.replace('TEST-', '')}`,
+          farmerId: newTest.farmerId,
+          farmerName: actualFarmerName,
+          testId: newTest.testId,
+          quantity: newTest.quantity,
+          fat: newTest.fat,
+          rate: ratePerLiter,
+          totalAmount,
+          qualityScore: newTest.qualityScore,
+          result: newTest.result,
+          timestamp: newTest.timestamp,
+          paymentStatus: 'PAID'
+        };
+        setDemoCollections((prev) => [createdCollection!, ...prev]);
+
+        setDemoFarmers((prev) =>
+          prev.map((f) => {
+            if (f.farmerId === farmerId) {
+              const prevSupplied = f.totalMilkSupplied || 0;
+              const prevCount = f.totalCollections || 0;
+              const prevScore = f.averageQualityScore || 90;
+              const newCount = prevCount + 1;
+              const newScore = Number(((prevScore * prevCount + quality.score) / newCount).toFixed(1));
+              return {
+                ...f,
+                totalMilkSupplied: Number((prevSupplied + quantity).toFixed(2)),
+                totalCollections: newCount,
+                averageQualityScore: newScore
+              };
+            }
+            return f;
+          })
+        );
+      }
+
+      if (newTest.result === 'REJECTED' || newTest.result === 'WARNING' || decision === 'REJECT') {
+        const newAlert: Alert = {
+          alertId: `ALT-${Date.now()}`,
+          type: sensorReading.conductivity > 6.0 ? 'HIGH_CONDUCTIVITY' : sensorReading.ph < 6.5 ? 'ABNORMAL_PH' : 'SUSPICIOUS_MILK',
+          severity: newTest.result === 'REJECTED' ? 'CRITICAL' : 'WARNING',
+          farmerId: newTest.farmerId,
+          farmerName: actualFarmerName,
+          testId: newTest.testId,
+          deviceId: newTest.deviceId,
+          message: `Batch ${newTest.testId} outcome: ${newTest.result} (Operator: ${decision}). Score ${newTest.qualityScore}%. ${newTest.warnings.join(', ')}`,
+          status: 'ACTIVE',
+          timestamp: new Date().toISOString()
+        };
+        setDemoAlerts((prev) => [newAlert, ...prev]);
+      }
+
+      return { test: newTest, quality, collection: createdCollection };
+    } else {
+      // Connected Mode: Direct authoritative backend call
+      const payload = {
+        farmerId,
+        farmerName,
+        deviceId,
+        quantity,
+        temperature: sensorReading.temperature,
+        ph: sensorReading.ph,
+        fat: sensorReading.fat,
+        density: sensorReading.density,
+        conductivity: sensorReading.conductivity,
+        milkLevel: sensorReading.milkLevel || quantity,
+        operatorDecision,
+        overrideReason,
+        notes
+      };
+
+      const res = await api.createTest(payload);
+      if (!res.success || !res.data) {
+        const err = res.error || 'Failed to record test on backend';
+        showToast(err, 'error');
+        throw new Error(err);
+      }
+
+      const savedTest = res.data;
+      const createdCollection = res.collection;
+      const qualityAssessment = res.qualityAssessment || {
+        score: savedTest.qualityScore,
+        classification: savedTest.classification,
+        result: savedTest.result,
+        warnings: savedTest.warnings || [],
+        recommendations: [],
+        parameters: {
+          temperature: { status: 'NORMAL', reading: savedTest.temperature, normalMin: 15, normalMax: 30, unit: '°C' },
+          ph: { status: 'NORMAL', reading: savedTest.ph, normalMin: 6.5, normalMax: 6.8, unit: 'pH' },
+          fat: { status: 'NORMAL', reading: savedTest.fat, normalMin: 3.5, normalMax: 6.5, unit: '%' },
+          density: { status: 'NORMAL', reading: savedTest.density, normalMin: 1.026, normalMax: 1.034, unit: 'g/mL' },
+          conductivity: { status: 'NORMAL', reading: savedTest.conductivity, normalMin: 4.0, normalMax: 6.0, unit: 'mS/cm' }
+        }
+      };
+
+      setConnectedTests((prev) => [savedTest, ...prev]);
+      if (createdCollection) {
+        setConnectedCollections((prev) => [createdCollection, ...prev]);
+      }
+
+      // Background refresh backend summary, farmers, and alerts so counts and farmer aggregates update
+      api.getSummary().then((s) => s.success && s.data && setConnectedSummary(s.data));
+      api.getFarmers().then((f) => f.success && Array.isArray(f.data) && setConnectedFarmers(f.data));
+      api.getAlerts().then((a) => a.success && Array.isArray(a.data) && setConnectedAlerts(a.data));
+
+      showToast(`Test ${savedTest.testId} processed and recorded by backend!`, 'success');
+      return { test: savedTest, quality: qualityAssessment, collection: createdCollection };
+    }
+  };
+
+  const updateAlertStatus = async (id: string, status: 'ACTIVE' | 'RESOLVED' | 'DISMISSED') => {
+    if (isDemoMode) {
+      setDemoAlerts((prev) => prev.map((a) => (a.alertId === id ? { ...a, status } : a)));
+      showToast(`Alert marked as ${status.toLowerCase()}`, 'info');
+    } else {
+      const res = await api.updateAlertStatus(id, status);
+      if (!res.success) {
+        showToast(res.error || 'Failed to update alert status on backend', 'error');
+        return;
+      }
+      setConnectedAlerts((prev) => prev.map((a) => (a.alertId === id ? { ...a, status } : a)));
+      showToast(`Alert marked as ${status.toLowerCase()} on backend`, 'info');
+    }
+  };
+
+  const triggerDeviceAction = async (deviceId: string, action: 'RESTART' | 'CALIBRATE' | 'CONNECT' | 'DISCONNECT') => {
+    if (isDemoMode) {
+      setDemoDevices((prev) =>
+        prev.map((d) => {
+          if (d.deviceId === deviceId) {
+            if (action === 'DISCONNECT') {
+              return { ...d, status: 'DISCONNECTED' };
+            }
+            if (action === 'CONNECT') {
+              return { ...d, status: 'CONNECTED', lastSeen: new Date().toISOString() };
+            }
+            return { ...d, lastSeen: new Date().toISOString() };
           }
-          return f;
+          return d;
         })
       );
+      showToast(`Device command ${action} sent to ${deviceId}`, 'success');
+    } else {
+      const res = await api.triggerDeviceHeartbeat(deviceId);
+      if (res.success && res.data) {
+        setConnectedDevices((prev) => prev.map((d) => (d.deviceId === deviceId ? res.data! : d)));
+        showToast(`Device heartbeat synced with backend for ${deviceId}`, 'success');
+      } else {
+        showToast(res.error || `Device command failed on backend`, 'error');
+      }
     }
+  };
 
-    // Trigger alert if anomalous or rejected
-    if (newTest.result === 'REJECTED' || newTest.result === 'WARNING' || decision === 'REJECT') {
-      const newAlert: Alert = {
-        alertId: `ALT-${Date.now()}`,
-        type: sensorReading.conductivity > 6.0 ? 'HIGH_CONDUCTIVITY' : sensorReading.ph < 6.5 ? 'ABNORMAL_PH' : 'SUSPICIOUS_MILK',
-        severity: newTest.result === 'REJECTED' ? 'CRITICAL' : 'WARNING',
-        farmerId: newTest.farmerId,
-        farmerName: actualFarmerName,
-        testId: newTest.testId,
-        deviceId: newTest.deviceId,
-        message: `Batch ${newTest.testId} outcome: ${newTest.result} (Operator: ${decision}). Score ${newTest.qualityScore}%. ${newTest.warnings.join(', ')}`,
-        status: 'ACTIVE',
-        timestamp: new Date().toISOString()
-      };
-      setAlerts((prev) => [newAlert, ...prev]);
+  const refreshData = useCallback(async () => {
+    if (isDemoMode) {
+      showToast('Demo data refreshed', 'info');
+    } else {
+      await fetchConnectedData();
+      showToast('Connected data refreshed from backend', 'info');
     }
-
-    return { test: newTest, quality, collection: createdCollection };
-  };
-
-  const updateAlertStatus = (id: string, status: 'ACTIVE' | 'RESOLVED' | 'DISMISSED') => {
-    setAlerts((prev) => prev.map((a) => (a.alertId === id ? { ...a, status } : a)));
-    showToast(`Alert marked as ${status.toLowerCase()}`, 'info');
-  };
-
-  const triggerDeviceAction = (deviceId: string, action: 'RESTART' | 'CALIBRATE' | 'CONNECT' | 'DISCONNECT') => {
-    setDevices((prev) =>
-      prev.map((d) => {
-        if (d.deviceId === deviceId) {
-          if (action === 'DISCONNECT') {
-            return { ...d, status: 'DISCONNECTED' };
-          }
-          if (action === 'CONNECT') {
-            return { ...d, status: 'CONNECTED', lastSeen: new Date().toISOString() };
-          }
-          return { ...d, lastSeen: new Date().toISOString() };
-        }
-        return d;
-      })
-    );
-    showToast(`Device command ${action} sent to ${deviceId}`, 'success');
-  };
-
-  const refreshData = useCallback(() => {
-    showToast('Data refreshed successfully', 'info');
-  }, [showToast]);
+  }, [isDemoMode, fetchConnectedData, showToast]);
 
   return (
     <DemoDataContext.Provider
       value={{
         isDemoMode,
-        setDemoMode: setIsDemoMode,
-        farmers,
-        tests,
-        collections,
-        devices,
-        alerts,
-        summary,
+        setDemoMode,
+        isLoading,
+        connectionError,
+        farmers: isDemoMode ? demoFarmers : connectedFarmers,
+        tests: isDemoMode ? demoTests : connectedTests,
+        collections: isDemoMode ? demoCollections : connectedCollections,
+        devices: isDemoMode ? demoDevices : connectedDevices,
+        alerts: isDemoMode ? demoAlerts : connectedAlerts,
+        summary: isDemoMode ? demoSummary : (connectedSummary || emptyFallbackSummary),
         addFarmer,
         updateFarmer,
         deleteFarmer,
