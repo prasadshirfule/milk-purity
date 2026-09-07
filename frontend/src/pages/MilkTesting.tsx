@@ -177,9 +177,9 @@ export const MilkTesting: React.FC = () => {
             size="md"
             onClick={() => setIsLookupModalOpen(true)}
             icon={<QrCode className="w-4 h-4 text-dairy-600" />}
-            className="border-dairy-300 bg-dairy-50/50 hover:bg-dairy-100 text-dairy-800 font-bold"
+            className="border-dairy-400 bg-dairy-50 hover:bg-dairy-100 text-dairy-800 font-extrabold shadow-sm"
           >
-            Scan / Enter Customer QR
+            Scan Customer QR
           </Button>
 
           {!isRunning ? (

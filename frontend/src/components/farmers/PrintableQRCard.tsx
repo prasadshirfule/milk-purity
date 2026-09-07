@@ -2,6 +2,7 @@ import React from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Farmer } from '../../types';
 import { ShieldCheck, Milk } from 'lucide-react';
+import { generateCustomerQRUrl } from '../../utils/qrParser';
 
 export interface PrintableQRCardProps {
   farmer: Farmer;
@@ -10,7 +11,7 @@ export interface PrintableQRCardProps {
 
 export const PrintableQRCard: React.FC<PrintableQRCardProps> = ({ farmer, onClose }) => {
   const code = farmer.customerCode || farmer.farmerId;
-  const qrUrl = typeof window !== 'undefined' ? `${window.location.origin}/customer/${code}` : `/customer/${code}`;
+  const qrUrl = generateCustomerQRUrl(code);
 
   const handlePrint = () => {
     window.print();

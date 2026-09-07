@@ -2,12 +2,14 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDemoData } from '../context/DemoDataContext';
 import { FarmerModal } from '../components/farmers/FarmerModal';
+import { CustomerQRModal } from '../components/farmers/CustomerQRModal';
+import { PrintableQRCard } from '../components/farmers/PrintableQRCard';
 import { DataTable } from '../components/common/DataTable';
 import { Badge } from '../components/common/Badge';
 import { Button } from '../components/common/Button';
 import { ConfirmDialog } from '../components/common/ConfirmDialog';
 import { Farmer, AnimalType } from '../types';
-import { Users, Plus, Search, Filter, Eye, Edit2, Trash2, Phone, MapPin } from 'lucide-react';
+import { Users, Plus, Search, Filter, Eye, Edit2, Trash2, Phone, MapPin, QrCode } from 'lucide-react';
 
 export const Farmers: React.FC = () => {
   const navigate = useNavigate();
@@ -20,6 +22,8 @@ export const Farmers: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingFarmer, setEditingFarmer] = useState<Farmer | null>(null);
   const [deletingFarmerId, setDeletingFarmerId] = useState<string | null>(null);
+  const [qrFarmer, setQrFarmer] = useState<Farmer | null>(null);
+  const [printFarmer, setPrintFarmer] = useState<Farmer | null>(null);
 
   const filteredFarmers = farmers.filter((f) => {
     const q = search.toLowerCase().trim();
@@ -207,8 +211,16 @@ export const Farmers: React.FC = () => {
             accessor: (f) => (
               <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                 <button
+                  onClick={() => setQrFarmer(f)}
+                  title="View Customer QR Code"
+                  className="p-1.5 text-dairy-600 hover:text-dairy-800 hover:bg-dairy-50 rounded-lg transition-colors flex items-center gap-1 text-xs font-bold"
+                >
+                  <QrCode className="w-4 h-4" />
+                  <span className="hidden sm:inline">QR</span>
+                </button>
+                <button
                   onClick={() => navigate(`/customer/${f.customerCode || f.farmerId}`)}
-                  title="View Customer Profile & QR"
+                  title="View Customer Profile & Dashboard"
                   className="p-1.5 text-slate-400 hover:text-dairy-600 hover:bg-slate-100 rounded-lg transition-colors"
                 >
                   <Eye className="w-4 h-4" />
@@ -249,6 +261,28 @@ export const Farmers: React.FC = () => {
           }
         }}
       />
+
+      {/* Quick Customer QR Modal */}
+      {qrFarmer && (
+        <CustomerQRModal
+          isOpen={!!qrFarmer}
+          onClose={() => setQrFarmer(null)}
+          farmer={qrFarmer}
+          onPrint={() => {
+            const current = qrFarmer;
+            setQrFarmer(null);
+            setPrintFarmer(current);
+          }}
+        />
+      )}
+
+      {/* Printable QR Card */}
+      {printFarmer && (
+        <PrintableQRCard
+          farmer={printFarmer}
+          onClose={() => setPrintFarmer(null)}
+        />
+      )}
 
       {/* Delete Confirmation */}
       <ConfirmDialog

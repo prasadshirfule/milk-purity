@@ -7,6 +7,8 @@ import { Farmer } from '../../types';
 import { useDemoData } from '../../context/DemoDataContext';
 import { QrCode, Search, Camera, AlertCircle, CheckCircle2, User, Phone, MapPin, Sparkles } from 'lucide-react';
 
+import { parseCustomerQR, generateCustomerQRUrl } from '../../utils/qrParser';
+
 export interface CustomerLookupModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -115,9 +117,9 @@ export const CustomerLookupModal: React.FC<CustomerLookupModalProps> = ({
     } catch (err: any) {
       console.warn('Camera error:', err);
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        setCameraError('Camera permission was denied. Please grant permission or use Manual Code Entry.');
+        setCameraError('Camera permission was denied. Please grant camera permission or use Manual Customer Code entry.');
       } else {
-        setCameraError('Camera is unavailable or in use by another app. Please enter Customer Code manually.');
+        setCameraError('Camera is unavailable or in use by another application. Please enter Customer Code manually.');
       }
       setIsScanning(false);
     }
@@ -125,29 +127,26 @@ export const CustomerLookupModal: React.FC<CustomerLookupModalProps> = ({
 
   const handleScannedUrlOrCode = async (rawValue: string) => {
     stopCamera();
-    // Parse URL e.g. https://.../customer/A1024 or simply A1024
-    let extractedCode = rawValue.trim();
-    if (extractedCode.includes('/customer/')) {
-      const parts = extractedCode.split('/customer/');
-      extractedCode = parts[parts.length - 1].split('?')[0].split('#')[0].trim();
-    } else if (extractedCode.includes('/farmers/')) {
-      const parts = extractedCode.split('/farmers/');
-      extractedCode = parts[parts.length - 1].split('?')[0].split('#')[0].trim();
+    const parsed = parseCustomerQR(rawValue);
+    if (!parsed.valid || !parsed.customerCode) {
+      setActiveTab('code');
+      setCodeError(parsed.error || 'Invalid MILKGUARD customer QR. Expected format /customer/A1024');
+      return;
     }
 
-    extractedCode = extractedCode.toUpperCase();
-    await resolveAndSelectCode(extractedCode);
+    await resolveAndSelectCode(parsed.customerCode);
   };
 
   const resolveAndSelectCode = async (rawCode: string) => {
-    const formatted = rawCode.trim().toUpperCase();
+    const parsed = parseCustomerQR(rawCode);
     setCodeError(null);
 
-    if (!/^[A-Z][0-9]{4}$/.test(formatted)) {
+    if (!parsed.valid || !parsed.customerCode) {
       setCodeError(`Invalid Customer Code format "${rawCode}". Expected 1 uppercase letter + 4 digits (e.g. A1024).`);
       return;
     }
 
+    const formatted = parsed.customerCode;
     setIsSearching(true);
     try {
       const found = await getFarmerByCustomerCode(formatted);
@@ -155,13 +154,13 @@ export const CustomerLookupModal: React.FC<CustomerLookupModalProps> = ({
         onSelectCustomer(found);
         onClose();
       } else {
-        // Check if there is any farmer whose internal farmerId matches
+        // Fallback: Check if there is any farmer whose internal farmerId matches
         const fallback = farmers.find((f) => f.farmerId.toUpperCase() === formatted || f.customerCode?.toUpperCase() === formatted);
         if (fallback) {
           onSelectCustomer(fallback);
           onClose();
         } else {
-          setCodeError(`Customer not found with code "${formatted}". Please verify and try again.`);
+          setCodeError(`Customer not found with code "${formatted}". Please verify the code and try again.`);
         }
       }
     } catch (e: any) {

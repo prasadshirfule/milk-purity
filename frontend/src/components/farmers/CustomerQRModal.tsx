@@ -6,6 +6,7 @@ import { Badge } from '../common/Badge';
 import { Farmer } from '../../types';
 import { Printer, Play, Copy, Check, QrCode, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { generateCustomerQRUrl } from '../../utils/qrParser';
 
 export interface CustomerQRModalProps {
   isOpen: boolean;
@@ -24,7 +25,7 @@ export const CustomerQRModal: React.FC<CustomerQRModalProps> = ({
   const [copied, setCopied] = React.useState(false);
 
   const code = farmer.customerCode || farmer.farmerId;
-  const qrUrl = typeof window !== 'undefined' ? `${window.location.origin}/customer/${code}` : `/customer/${code}`;
+  const qrUrl = generateCustomerQRUrl(code);
 
   const handleCopy = () => {
     if (navigator.clipboard) {

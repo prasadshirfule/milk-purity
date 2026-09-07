@@ -221,4 +221,23 @@ describe('Customer Code & QR Identification Workflow Tests', () => {
     assert.strictEqual(run1[0].customerCode, run2[0].customerCode);
     assert.strictEqual(run1[1].customerCode, run2[1].customerCode);
   });
+
+  it('13. Customer search query resolves customer by code', async () => {
+    const res = await fetch(`${baseUrl}/api/farmers?search=A1024`);
+    const json = await res.json();
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(json.success, true);
+    assert.ok(Array.isArray(json.data));
+    assert.strictEqual(json.data.length, 1);
+    assert.strictEqual(json.data[0].customerCode, 'A1024');
+    assert.strictEqual(json.data[0].name, 'Rajesh Patil');
+  });
+
+  it('14. Unknown customer returns 404 and does not expose private info', async () => {
+    const res = await fetch(`${baseUrl}/api/farmers/code/K9999`);
+    const json = await res.json();
+    assert.strictEqual(res.status, 404);
+    assert.strictEqual(json.success, false);
+    assert.strictEqual(json.data, undefined);
+  });
 });

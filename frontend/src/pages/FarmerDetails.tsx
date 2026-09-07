@@ -10,6 +10,7 @@ import { CustomerQRModal } from '../components/farmers/CustomerQRModal';
 import { PrintableQRCard } from '../components/farmers/PrintableQRCard';
 import { QRCodeSVG } from 'qrcode.react';
 import { MilkTest, MilkCollection } from '../types';
+import { generateCustomerQRUrl } from '../utils/qrParser';
 import {
   ArrowLeft,
   Milk,
@@ -70,7 +71,7 @@ export const FarmerDetails: React.FC = () => {
   }
 
   const code = farmer.customerCode || farmer.farmerId;
-  const qrUrl = typeof window !== 'undefined' ? `${window.location.origin}/customer/${code}` : `/customer/${code}`;
+  const qrUrl = generateCustomerQRUrl(code);
 
   const handleCopyCode = () => {
     if (navigator.clipboard) {
