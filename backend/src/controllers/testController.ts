@@ -75,8 +75,31 @@ export const createTest = async (req: Request, res: Response): Promise<void> => 
       milkLevel,
       operatorDecision, // 'ACCEPT' | 'REJECT'
       overrideReason,
-      notes
+      notes,
+      testId: clientTestId,
+      idempotencyKey
     } = req.body;
+
+    const requestedTestId = typeof clientTestId === 'string' && clientTestId.trim()
+      ? clientTestId.trim()
+      : typeof idempotencyKey === 'string' && idempotencyKey.trim()
+      ? idempotencyKey.trim()
+      : '';
+
+    if (requestedTestId) {
+      const existingTest = await dataRepository.getTestById(requestedTestId);
+      if (existingTest) {
+        const allCols = await dataRepository.getCollections();
+        const existingCol = allCols.find(c => c.testId === existingTest.testId);
+        res.status(200).json({
+          success: true,
+          data: existingTest,
+          collection: existingCol,
+          duplicateProtected: true
+        });
+        return;
+      }
+    }
 
     const isFiniteNumber = (val: any): boolean => {
       if (typeof val === 'number') {
@@ -304,7 +327,7 @@ export const createTest = async (req: Request, res: Response): Promise<void> => 
 
     const uniqueToken = `${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
     const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const testId = `TEST-${datePart}-${uniqueToken}`;
+    const testId = requestedTestId || `TEST-${datePart}-${uniqueToken}`;
 
     const newTest: IMilkTest = {
       testId,

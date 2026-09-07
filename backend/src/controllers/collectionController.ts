@@ -63,6 +63,15 @@ export const createCollection = async (req: Request, res: Response): Promise<voi
       return;
     }
 
+    if (testId && typeof testId === 'string' && testId.trim()) {
+      const existingCollections = await dataRepository.getCollections();
+      const existingCol = existingCollections.find(c => c.testId === testId.trim());
+      if (existingCol) {
+        res.status(200).json({ success: true, data: existingCol, duplicateProtected: true });
+        return;
+      }
+    }
+
     const farmer = await dataRepository.getFarmerById(farmerId.trim());
     if (!farmer) {
       res.status(400).json({ success: false, error: `Farmer not found with ID: ${farmerId.trim()}` });

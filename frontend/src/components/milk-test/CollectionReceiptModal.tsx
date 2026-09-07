@@ -81,11 +81,12 @@ export const CollectionReceiptModal: React.FC<CollectionReceiptModalProps> = ({
               <span className="font-semibold text-slate-800">
                 {testDate.toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric' })} • {testDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </span>
+              <p className="text-[10px] text-slate-500 font-mono mt-0.5">Test: {test.testId}</p>
             </div>
             <div className="text-right">
               <span className="text-slate-500 block">Collection ID:</span>
               <span className="font-mono font-bold text-dairy-800">
-                {collection?.collectionId || `COL-${test.testId.replace('TST-', '')}`}
+                {test.result !== 'REJECTED' ? (collection?.collectionId || `COL-${test.testId.replace('TEST-', '').replace('TST-', '')}`) : '— (None / Rejected)'}
               </span>
             </div>
           </div>
@@ -93,7 +94,7 @@ export const CollectionReceiptModal: React.FC<CollectionReceiptModalProps> = ({
           {/* Volume & Quality Assessment Breakdown */}
           <div className="space-y-2 text-xs">
             <div className="flex justify-between py-1 border-b border-slate-100">
-              <span className="text-slate-500">Delivered Volume:</span>
+              <span className="text-slate-500">Delivered Quantity:</span>
               <strong className="text-slate-900 text-sm font-mono">{test.quantity.toFixed(2)} Litres</strong>
             </div>
             <div className="flex justify-between py-1 border-b border-slate-100">
@@ -105,6 +106,10 @@ export const CollectionReceiptModal: React.FC<CollectionReceiptModalProps> = ({
               <strong className="text-dairy-800 font-mono text-sm">{test.purityScore || test.qualityScore}%</strong>
             </div>
             <div className="flex justify-between py-1 border-b border-slate-100">
+              <span className="text-slate-500">Classification:</span>
+              <strong className="text-slate-800 font-bold uppercase">{test.classification || 'GOOD'}</strong>
+            </div>
+            <div className="flex justify-between py-1 border-b border-slate-100">
               <span className="text-slate-500">AI Quality Recommendation:</span>
               <Badge variant={test.aiRecommendation === 'ACCEPT' ? 'success' : test.aiRecommendation === 'REVIEW' ? 'warning' : 'danger'} size="sm">
                 {test.aiRecommendation || 'ACCEPT'}
@@ -114,8 +119,16 @@ export const CollectionReceiptModal: React.FC<CollectionReceiptModalProps> = ({
               <span className="text-slate-500">Operator Decision:</span>
               <strong className="text-slate-800 font-bold uppercase">{test.operatorDecision || test.result}</strong>
             </div>
+            {test.overrideReason && (
+              <div className="p-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900 space-y-0.5">
+                <span className="font-bold flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-amber-600" /> Manual Override Recorded:
+                </span>
+                <p className="italic text-slate-700">"{test.overrideReason}"</p>
+              </div>
+            )}
             <div className="flex justify-between py-1 border-b border-slate-100">
-              <span className="text-slate-500">Final Intake Status:</span>
+              <span className="text-slate-500">Final Result:</span>
               <Badge variant={test.result === 'ACCEPTED' ? 'success' : test.result === 'WARNING' ? 'warning' : 'danger'} size="sm">
                 {test.result}
               </Badge>
@@ -137,8 +150,9 @@ export const CollectionReceiptModal: React.FC<CollectionReceiptModalProps> = ({
               </div>
             </div>
           ) : (
-            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 text-center font-medium">
-              Milk batch was rejected. Payout: ₹0.00. No ledger credit issued.
+            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 text-center font-medium space-y-1">
+              <div className="font-bold uppercase tracking-wider text-rose-900">REJECTED — RATE: ₹0.00 / L • TOTAL: ₹0.00</div>
+              <p className="text-[11px] text-rose-700">NO COLLECTION CREDIT ISSUED (Batch excluded from ledger)</p>
             </div>
           )}
 

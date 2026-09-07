@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDemoData } from '../context/DemoDataContext';
 import { StatCard } from '../components/common/StatCard';
@@ -42,7 +42,11 @@ import {
 export const FarmerDetails: React.FC = () => {
   const { id, customerCode } = useParams<{ id?: string; customerCode?: string }>();
   const navigate = useNavigate();
-  const { farmers, tests, collections } = useDemoData();
+  const { farmers, tests, collections, refreshData } = useDemoData();
+
+  useEffect(() => {
+    refreshData();
+  }, [customerCode, id]);
 
   const [showQRModal, setShowQRModal] = useState(false);
   const [showPrintCard, setShowPrintCard] = useState(false);
@@ -102,6 +106,17 @@ export const FarmerDetails: React.FC = () => {
     farmerTests.length > 0
       ? Number((farmerTests.reduce((sum, t) => sum + t.fat, 0) / farmerTests.length).toFixed(2))
       : 4.5;
+
+  const scoredTests = farmerTests.filter((t) => t.purityScore !== undefined || t.qualityScore !== undefined);
+  const avgPurityScore =
+    scoredTests.length > 0
+      ? Number(
+          (
+            scoredTests.reduce((sum, t) => sum + (t.purityScore || t.qualityScore || 0), 0) /
+            scoredTests.length
+          ).toFixed(1)
+        )
+      : farmer.averageQualityScore || 92;
 
   // Timeline chart data
   const chartData = farmerTests.slice(0, 10).reverse().map((t, idx) => ({
@@ -167,6 +182,7 @@ export const FarmerDetails: React.FC = () => {
             size="sm"
             onClick={handleStartTest}
             icon={<Play className="w-4 h-4" />}
+            className="bg-dairy-600 hover:bg-dairy-700 text-white font-bold"
           >
             Start Milk Test
           </Button>
@@ -197,9 +213,9 @@ export const FarmerDetails: React.FC = () => {
           </div>
           <div className="space-y-1">
             <span className="text-[10px] font-bold text-dairy-300 uppercase tracking-wider">Fast Operator Identification</span>
-            <h3 className="text-base font-bold text-white">QR Code Ready for Milk Acceptance</h3>
+            <h3 className="text-base font-bold text-white">Customer QR Code Ready</h3>
             <p className="text-xs text-dairy-200">
-              Scan this QR with the collection terminal camera or enter <span className="font-mono font-bold text-white bg-dairy-700/60 px-1.5 py-0.5 rounded">{code}</span> to preselect this customer.
+              Scan this QR with the collection terminal camera or enter code <span className="font-mono font-bold text-white bg-dairy-700/60 px-1.5 py-0.5 rounded">{code}</span> for 1-click customer preselection.
             </p>
           </div>
         </div>
@@ -219,59 +235,146 @@ export const FarmerDetails: React.FC = () => {
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Primary KPI Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <StatCard
           title="Total Lifetime Milk"
-          value={farmer.totalMilkSupplied ? farmer.totalMilkSupplied.toLocaleString() : totalAcceptedVolume.toLocaleString()}
+          value={farmer.totalMilkSupplied ? farmer.totalMilkSupplied.toLocaleString() : (totalAcceptedVolume + totalRejectedVolume).toLocaleString()}
           unit="L"
-          subtitle={`${farmerCollections.length} batches delivered`}
+          subtitle={`${farmerTests.length} tests logged`}
           icon={<Milk className="w-5 h-5" />}
           iconBg="bg-dairy-50 text-dairy-600"
         />
 
         <StatCard
-          title="Average Milk Purity Score"
-          value={`${farmer.averageQualityScore || 92}%`}
-          subtitle="Cumulative testing score"
-          icon={<ShieldCheck className="w-5 h-5" />}
+          title="Accepted Volume"
+          value={totalAcceptedVolume.toLocaleString()}
+          unit="L"
+          subtitle={`${acceptedTests.length + warningTests.length} accepted batches`}
+          icon={<Check className="w-5 h-5" />}
           iconBg="bg-emerald-50 text-emerald-600"
         />
 
         <StatCard
-          title="Avg Estimated Fat %"
-          value={`${avgEstimatedFat}%`}
-          subtitle="Estimated screening fat"
-          icon={<Coins className="w-5 h-5" />}
-          iconBg="bg-amber-50 text-amber-600"
+          title="Rejected Volume"
+          value={totalRejectedVolume.toLocaleString()}
+          unit="L"
+          subtitle={`${rejectedTests.length} rejected (${totalRejectedVolume > 0 ? '₹0 payout' : '0% reject'})`}
+          icon={<AlertTriangle className="w-5 h-5" />}
+          iconBg="bg-rose-50 text-rose-600"
         />
 
         <StatCard
-          title="Total Earnings Due"
-          value={`₹${totalPayout.toLocaleString()}`}
-          subtitle={`${((acceptedTests.length / (farmerTests.length || 1)) * 100).toFixed(0)}% Acceptance rate`}
-          icon={<FileText className="w-5 h-5" />}
+          title="Avg Milk Purity"
+          value={`${avgPurityScore}%`}
+          subtitle="Screening baseline"
+          icon={<ShieldCheck className="w-5 h-5" />}
+          iconBg="bg-sky-50 text-sky-600"
+        />
+
+        <StatCard
+          title="Current Ledger Balance"
+          value={`₹${totalPayout.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          subtitle="Total accepted dues"
+          icon={<Coins className="w-5 h-5" />}
           iconBg="bg-indigo-50 text-indigo-600"
         />
       </div>
 
-      {/* Test Status Distribution Banner */}
-      <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-sm flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <span className="text-xs font-bold text-slate-700 block">Total Tests Recorded: {farmerTests.length}</span>
-          <span className="text-[11px] text-slate-400">Lifetime delivery tests logged for {farmer.name}</span>
+      {/* Financial Ledger Statement Section */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+          <div>
+            <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <Coins className="w-5 h-5 text-dairy-600" />
+              Customer Financial Ledger
+            </h3>
+            <p className="text-xs text-slate-500">
+              Authoritative procurement ledger calculated strictly from accepted milk collections.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant="success" size="md">
+              Closing Balance: ₹{totalPayout.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </Badge>
+          </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 text-xs">
-          <Badge variant="success" size="sm">
-            {acceptedTests.length} Accepted ({totalAcceptedVolume} L)
-          </Badge>
-          <Badge variant="warning" size="sm">
-            {warningTests.length} Warning
-          </Badge>
-          <Badge variant="danger" size="sm">
-            {rejectedTests.length} Rejected ({totalRejectedVolume} L)
-          </Badge>
+        {/* Ledger Balance Flow Breakdown */}
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
+          <div className="space-y-0.5">
+            <span className="text-slate-500 font-medium">Opening Balance:</span>
+            <div className="font-mono font-bold text-slate-800 text-sm">₹0.00</div>
+          </div>
+          <div className="space-y-0.5">
+            <span className="text-emerald-700 font-medium">Milk Collected (Credit):</span>
+            <div className="font-mono font-bold text-emerald-700 text-sm">
+              +₹{totalPayout.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+          </div>
+          <div className="space-y-0.5">
+            <span className="text-slate-500 font-medium">Payouts Disbursed (Debit):</span>
+            <div className="font-mono font-bold text-slate-600 text-sm">-₹0.00</div>
+          </div>
+          <div className="space-y-0.5">
+            <span className="text-dairy-800 font-medium">Net Closing Balance:</span>
+            <div className="font-mono font-black text-dairy-900 text-sm">
+              ₹{totalPayout.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+          </div>
+        </div>
+
+        {/* Ledger Entries Table */}
+        <div className="space-y-2 pt-2">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+            Recorded Ledger Entries ({farmerCollections.length})
+          </h4>
+          <DataTable<MilkCollection>
+            data={farmerCollections}
+            keyExtractor={(c) => c.collectionId}
+            columns={[
+              {
+                header: 'Collection ID',
+                accessor: (c) => <span className="font-mono font-bold text-dairy-700">{c.collectionId}</span>
+              },
+              {
+                header: 'Linked Test ID',
+                accessor: (c) => <span className="font-mono text-xs text-slate-600">{c.testId || '—'}</span>
+              },
+              {
+                header: 'Date & Time',
+                accessor: (c) => (
+                  <span className="text-slate-500 text-xs">
+                    {new Date(c.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })} • {new Date(c.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                )
+              },
+              {
+                header: 'Volume (L)',
+                accessor: (c) => <span className="font-mono font-bold text-slate-900">{c.quantity} L</span>
+              },
+              {
+                header: 'Fat %',
+                accessor: (c) => <Badge variant="primary" size="sm">{c.fat}%</Badge>
+              },
+              {
+                header: 'Rate (₹/L)',
+                accessor: (c) => <span className="font-mono text-xs font-semibold text-slate-700">₹{c.rate.toFixed(2)}</span>
+              },
+              {
+                header: 'Credit Amount (₹)',
+                accessor: (c) => <span className="font-mono font-bold text-emerald-600">₹{c.totalAmount.toFixed(2)}</span>
+              },
+              {
+                header: 'Status',
+                accessor: (c) => (
+                  <Badge variant={(c.paymentStatus || 'PAID') === 'PAID' ? 'success' : 'warning'} size="sm">
+                    {c.paymentStatus || 'RECORDED'}
+                  </Badge>
+                )
+              }
+            ]}
+          />
         </div>
       </div>
 
@@ -345,9 +448,12 @@ export const FarmerDetails: React.FC = () => {
         </ChartCard>
       </div>
 
-      {/* Historical Tests Table for Farmer */}
+      {/* Granular Delivery & Quality Testing History Table */}
       <div className="space-y-3">
-        <h3 className="text-base font-bold text-slate-900">Delivery & Quality History</h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-base font-bold text-slate-900">Delivery & Quality Screening History</h3>
+          <span className="text-xs text-slate-400">Total: {farmerTests.length} tests</span>
+        </div>
         <DataTable<MilkTest>
           data={farmerTests}
           keyExtractor={(t) => t.testId}
@@ -357,10 +463,10 @@ export const FarmerDetails: React.FC = () => {
               accessor: (t) => <span className="font-mono font-bold text-slate-800">{t.testId}</span>
             },
             {
-              header: 'Date',
+              header: 'Date & Time',
               accessor: (t) => (
-                <span className="text-slate-500">
-                  {new Date(t.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
+                <span className="text-slate-500 text-xs">
+                  {new Date(t.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })} • {new Date(t.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>
               )
             },
@@ -369,7 +475,7 @@ export const FarmerDetails: React.FC = () => {
               accessor: (t) => <span className="font-mono font-bold text-slate-900">{t.quantity} L</span>
             },
             {
-              header: 'Est. Fat %',
+              header: 'Fat %',
               accessor: (t) => <span className="font-mono font-semibold">{t.fat}%</span>
             },
             {
@@ -382,72 +488,54 @@ export const FarmerDetails: React.FC = () => {
             },
             {
               header: 'Purity Score',
-              accessor: (t) => <span className="font-mono font-bold text-slate-900">{t.purityScore || t.qualityScore}%</span>
+              accessor: (t) => (
+                <span className="font-mono font-bold text-slate-900">
+                  {t.purityScore !== undefined || t.qualityScore !== undefined ? `${t.purityScore || t.qualityScore}%` : '—'}
+                </span>
+              )
+            },
+            {
+              header: 'AI Rec.',
+              accessor: (t) => (
+                t.aiRecommendation ? (
+                  <Badge variant={t.aiRecommendation === 'ACCEPT' ? 'success' : t.aiRecommendation === 'REVIEW' ? 'warning' : 'danger'} size="sm">
+                    {t.aiRecommendation}
+                  </Badge>
+                ) : <span className="text-slate-400 text-xs">—</span>
+              )
+            },
+            {
+              header: 'Decision',
+              accessor: (t) => (
+                <span className="font-bold text-xs uppercase text-slate-700">
+                  {t.operatorDecision || t.result}
+                </span>
+              )
             },
             {
               header: 'Result',
               accessor: (t) => (
-                <Badge
-                  variant={t.result === 'ACCEPTED' ? 'success' : t.result === 'WARNING' ? 'warning' : 'danger'}
-                  size="sm"
-                >
-                  {t.result}
-                </Badge>
+                <div className="space-y-0.5">
+                  <Badge
+                    variant={t.result === 'ACCEPTED' ? 'success' : t.result === 'WARNING' ? 'warning' : 'danger'}
+                    size="sm"
+                  >
+                    {t.result}
+                  </Badge>
+                  {t.overrideReason && (
+                    <span className="block text-[10px] text-amber-600 font-semibold truncate max-w-[120px]" title={t.overrideReason}>
+                      Override: {t.overrideReason}
+                    </span>
+                  )}
+                </div>
               )
             },
             {
               header: 'Payout (₹)',
               accessor: (t) => (
                 <span className="font-mono font-bold text-dairy-800">
-                  {t.totalAmount ? `₹${t.totalAmount.toLocaleString()}` : '—'}
+                  {t.result === 'REJECTED' ? '₹0.00' : (t.totalAmount ? `₹${t.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—')}
                 </span>
-              )
-            }
-          ]}
-        />
-      </div>
-
-      {/* Historical Collections for Farmer */}
-      <div className="space-y-3 pt-4">
-        <h3 className="text-base font-bold text-slate-900">Procurement Collections & Ledger Entries</h3>
-        <DataTable<MilkCollection>
-          data={farmerCollections}
-          keyExtractor={(c) => c.collectionId}
-          columns={[
-            {
-              header: 'Collection ID',
-              accessor: (c) => <span className="font-mono font-bold text-dairy-700">{c.collectionId}</span>
-            },
-            {
-              header: 'Date',
-              accessor: (c) => (
-                <span className="text-slate-500">
-                  {new Date(c.timestamp).toLocaleDateString()}
-                </span>
-              )
-            },
-            {
-              header: 'Volume',
-              accessor: (c) => <span className="font-mono font-bold">{c.quantity} L</span>
-            },
-            {
-              header: 'Est. Fat',
-              accessor: (c) => <Badge variant="primary" size="sm">{c.fat}%</Badge>
-            },
-            {
-              header: 'Rate (₹/L)',
-              accessor: (c) => <span className="font-mono text-xs">₹{c.rate.toFixed(2)}</span>
-            },
-            {
-              header: 'Total Payable',
-              accessor: (c) => <span className="font-mono font-bold text-emerald-600">₹{c.totalAmount.toFixed(2)}</span>
-            },
-            {
-              header: 'Payment Status',
-              accessor: (c) => (
-                <Badge variant={(c.paymentStatus || 'PAID') === 'PAID' ? 'success' : 'warning'} size="sm">
-                  {c.paymentStatus || 'PAID'}
-                </Badge>
               )
             }
           ]}
