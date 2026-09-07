@@ -1311,3 +1311,117 @@ export const SEED_ALERTS: IAlert[] = [
 ];
 
 export const SEED_SETTINGS: IDairySettings = DEFAULT_SETTINGS;
+
+export const SEED_USERS = [
+  {
+    userId: 'USR-001',
+    name: 'Vikram Malhotra',
+    username: 'admin',
+    password: 'dairy2026',
+    role: 'ADMIN' as const,
+    status: 'ACTIVE' as const,
+    dairyName: 'Amrit Dairy Milk Collection Center',
+    createdAt: new Date('2026-01-01'),
+    updatedAt: new Date('2026-09-07')
+  },
+  {
+    userId: 'USR-002',
+    name: 'Rajendra Deshmukh',
+    username: 'operator',
+    password: 'dairy2026',
+    role: 'OPERATOR' as const,
+    status: 'ACTIVE' as const,
+    dairyName: 'Amrit Dairy Milk Collection Center',
+    createdAt: new Date('2026-01-15'),
+    updatedAt: new Date('2026-09-07')
+  },
+  {
+    userId: 'USR-003',
+    name: 'Dr. Sunita Rao',
+    username: 'quality',
+    password: 'dairy2026',
+    role: 'QUALITY_OPERATOR' as const,
+    status: 'ACTIVE' as const,
+    dairyName: 'Amrit Dairy Quality Testing Lab',
+    createdAt: new Date('2026-02-01'),
+    updatedAt: new Date('2026-09-07')
+  },
+  {
+    userId: 'USR-004',
+    name: 'Auditor Ramesh',
+    username: 'viewer',
+    password: 'dairy2026',
+    role: 'VIEWER' as const,
+    status: 'ACTIVE' as const,
+    dairyName: 'Amrit Dairy Management & Auditing',
+    createdAt: new Date('2026-03-01'),
+    updatedAt: new Date('2026-09-07')
+  }
+];
+
+export const SEED_AUDIT_LOGS = [
+  {
+    auditId: 'AUD-1001',
+    timestamp: new Date('2026-09-06T08:00:00Z'),
+    userId: 'USR-001',
+    userName: 'Rajendra Deshmukh',
+    role: 'ADMIN',
+    action: 'LOGIN',
+    entityType: 'AUTH',
+    details: 'Administrator logged into dock management terminal',
+    ipAddress: '127.0.0.1'
+  },
+  {
+    auditId: 'AUD-1002',
+    timestamp: new Date('2026-09-06T08:15:20Z'),
+    userId: 'USR-002',
+    userName: 'Sunil Shinde',
+    role: 'OPERATOR',
+    action: 'SCAN_CUSTOMER_QR',
+    entityType: 'CUSTOMER',
+    entityId: 'FMR-1001',
+    customerCode: 'A1024',
+    details: 'Customer QR A1024 (Rajesh Patil) successfully scanned and identified',
+    ipAddress: '127.0.0.1'
+  },
+  {
+    auditId: 'AUD-1003',
+    timestamp: new Date('2026-09-06T08:16:45Z'),
+    userId: 'USR-002',
+    userName: 'Sunil Shinde',
+    role: 'OPERATOR',
+    action: 'CREATE_MILK_TEST',
+    entityType: 'MILK_TEST',
+    entityId: 'TEST-20260906-001',
+    customerCode: 'A1024',
+    details: 'Milk test logged: 45.0 L, Purity: 96%, Result: ACCEPTED',
+    ipAddress: '127.0.0.1'
+  },
+  {
+    auditId: 'AUD-1004',
+    timestamp: new Date('2026-09-06T08:16:50Z'),
+    userId: 'USR-002',
+    userName: 'Sunil Shinde',
+    role: 'OPERATOR',
+    action: 'CREATE_COLLECTION',
+    entityType: 'COLLECTION',
+    entityId: 'COL-20260906-001',
+    customerCode: 'A1024',
+    details: 'Procurement collection created: 45.0 L @ ₹44.50/L = ₹2002.50',
+    ipAddress: '127.0.0.1'
+  },
+  {
+    auditId: 'AUD-1005',
+    timestamp: new Date('2026-09-06T09:30:10Z'),
+    userId: 'USR-003',
+    userName: 'Pooja Kulkarni',
+    role: 'QUALITY_OPERATOR',
+    action: 'OVERRIDE_RECOMMENDATION',
+    entityType: 'MILK_TEST',
+    entityId: 'TEST-20260906-003',
+    customerCode: 'P0047',
+    details: 'Manual override: System recommended REVIEW, operator accepted batch after secondary refractometer check',
+    ipAddress: '127.0.0.1'
+  }
+];
+

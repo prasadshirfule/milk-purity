@@ -175,28 +175,6 @@ export const createTest = async (req: Request, res: Response): Promise<void> => 
     }
     const fatNum = Number(fat);
 
-    const isDemo = ENV.DEMO_MODE === true;
-
-    // In connected/API mode, missing sensor measurements are rejected
-    if (!isDemo) {
-      if (temperature === undefined || temperature === null) {
-        res.status(400).json({ success: false, error: 'Missing required field in connected mode: temperature' });
-        return;
-      }
-      if (density === undefined || density === null) {
-        res.status(400).json({ success: false, error: 'Missing required field in connected mode: density' });
-        return;
-      }
-      if (conductivity === undefined || conductivity === null) {
-        res.status(400).json({ success: false, error: 'Missing required field in connected mode: conductivity' });
-        return;
-      }
-      if (milkLevel === undefined || milkLevel === null) {
-        res.status(400).json({ success: false, error: 'Missing required field in connected mode: milkLevel' });
-        return;
-      }
-    }
-
     let tempNum = 24.0;
     if (temperature !== undefined && temperature !== null) {
       if (!isFiniteNumber(temperature)) {
@@ -259,7 +237,27 @@ export const createTest = async (req: Request, res: Response): Promise<void> => 
         return;
       }
     }
-    const decision: 'ACCEPT' | 'REJECT' = operatorDecision === 'REJECT' ? 'REJECT' : 'ACCEPT';
+
+    // Duplicate / idempotency check within 2000ms window
+    if (!requestedTestId) {
+      const allRecentTests = await dataRepository.getTests();
+      const now = Date.now();
+      const duplicate = allRecentTests.find(
+        t =>
+          t.farmerId === farmer.farmerId &&
+          Math.abs(now - new Date(t.timestamp).getTime()) < 2000 &&
+          Math.abs(t.quantity - qtyNum) < 0.001 &&
+          Math.abs(t.fat - fatNum) < 0.001
+      );
+      if (duplicate) {
+        res.status(409).json({
+          success: false,
+          error: `Duplicate test submission detected: an identical batch for customer ${farmer.farmerId} was just processed (${duplicate.testId}).`,
+          testId: duplicate.testId
+        });
+        return;
+      }
+    }
 
     const settings = await dataRepository.getSettings();
     const sensorData = {
@@ -282,6 +280,13 @@ export const createTest = async (req: Request, res: Response): Promise<void> => 
     const authoritativeAiRec: 'ACCEPT' | 'REVIEW' | 'REJECT' = mlPrediction.aiRecommendation;
     const recommendedResult: 'ACCEPTED' | 'WARNING' | 'REJECTED' =
       authoritativeAiRec === 'ACCEPT' ? 'ACCEPTED' : authoritativeAiRec === 'REVIEW' ? 'WARNING' : 'REJECTED';
+
+    let decision: 'ACCEPT' | 'REJECT';
+    if (operatorDecision === 'ACCEPT' || operatorDecision === 'REJECT') {
+      decision = operatorDecision;
+    } else {
+      decision = authoritativeAiRec === 'REJECT' ? 'REJECT' : 'ACCEPT';
+    }
 
     // 2. Enforce overrideReason if operator is accepting a rejected recommendation
     const trimmedOverrideReason = typeof overrideReason === 'string' ? overrideReason.trim() : '';
@@ -325,6 +330,11 @@ export const createTest = async (req: Request, res: Response): Promise<void> => 
       }
     }
 
+    const operatorId = (req as any).user?.userId || 'USR-002';
+    const operatorName = (req as any).user?.name || 'Station Operator';
+    const operatorRole = (req as any).user?.role || 'OPERATOR';
+    const overrideTimestamp = (authoritativeAiRec === 'REJECT' && decision === 'ACCEPT') ? new Date() : undefined;
+
     const uniqueToken = `${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
     const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const testId = requestedTestId || `TEST-${datePart}-${uniqueToken}`;
@@ -350,6 +360,10 @@ export const createTest = async (req: Request, res: Response): Promise<void> => 
       aiRecommendation: authoritativeAiRec,
       operatorDecision: decision,
       overrideReason: trimmedOverrideReason || undefined,
+      operatorId,
+      operatorName,
+      operatorRole,
+      overrideTimestamp,
       modelVersion: mlPrediction.modelVersion || 'screening-baseline-v1',
       scoreExplanation: mlPrediction.scoreExplanation.length > 0 ? mlPrediction.scoreExplanation : qualityEval.scoreExplanation,
       prediction: mlPrediction.prediction,
@@ -362,6 +376,21 @@ export const createTest = async (req: Request, res: Response): Promise<void> => 
     };
 
     const savedTest = await dataRepository.addTest(newTest);
+
+    // Record audit event for milk test creation
+    await dataRepository.addAuditLog({
+      userId: operatorId,
+      userName: operatorName,
+      role: operatorRole,
+      action: savedTest.result === 'REJECTED' ? 'REJECT_MILK' : (savedTest.overrideReason ? 'OVERRIDE_RECOMMENDATION' : 'CREATE_MILK_TEST'),
+      entityType: 'MILK_TEST',
+      entityId: savedTest.testId,
+      customerCode: savedTest.customerCode,
+      details: savedTest.overrideReason
+        ? `Manual override by ${operatorName}: AI recommended ${authoritativeAiRec}, operator ACCEPTED batch (${savedTest.quantity} L). Reason: "${savedTest.overrideReason}"`
+        : `Milk quality test logged for customer ${savedTest.customerCode || savedTest.farmerId} (${savedTest.quantity} L): Purity ${savedTest.purityScore}%, Result: ${savedTest.result}`,
+      ipAddress: req.ip || '127.0.0.1'
+    });
 
     // 4. Automatically record MilkCollection ledger entry ONLY if final result is NOT rejected
     let createdCollection: IMilkCollection | undefined;
@@ -378,10 +407,25 @@ export const createTest = async (req: Request, res: Response): Promise<void> => 
         totalAmount: savedTest.totalAmount || totalAmount,
         qualityScore: savedTest.qualityScore,
         result: savedTest.result,
+        operatorId,
+        operatorName,
         timestamp: savedTest.timestamp,
         paymentStatus: 'PAID'
       };
       await dataRepository.addCollection(createdCollection);
+
+      // Record collection audit log
+      await dataRepository.addAuditLog({
+        userId: operatorId,
+        userName: operatorName,
+        role: operatorRole,
+        action: 'CREATE_COLLECTION',
+        entityType: 'COLLECTION',
+        entityId: createdCollection.collectionId,
+        customerCode: createdCollection.customerCode,
+        details: `Milk collection ${createdCollection.collectionId} recorded: ${createdCollection.quantity} L @ ₹${createdCollection.rate.toFixed(2)}/L = ₹${createdCollection.totalAmount.toFixed(2)}`,
+        ipAddress: req.ip || '127.0.0.1'
+      });
     }
 
     // 5. Generate alert if anomalous or rejected

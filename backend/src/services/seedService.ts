@@ -5,6 +5,8 @@ import { MilkCollection } from '../models/MilkCollection';
 import { Device } from '../models/Device';
 import { Alert } from '../models/Alert';
 import { Setting } from '../models/Setting';
+import { User } from '../models/User';
+import { AuditLog } from '../models/AuditLog';
 import { CustomerCodeService } from './customerCodeService';
 import {
   SEED_FARMERS,
@@ -12,9 +14,11 @@ import {
   SEED_COLLECTIONS,
   SEED_DEVICES,
   SEED_ALERTS,
-  SEED_SETTINGS
+  SEED_SETTINGS,
+  SEED_USERS,
+  SEED_AUDIT_LOGS
 } from '../mock/seedData';
-import { IFarmer, IMilkTest, IMilkCollection, IDevice, IAlert, IDairySettings } from '../types';
+import { IFarmer, IMilkTest, IMilkCollection, IDevice, IAlert, IDairySettings, IUser, IAuditLog } from '../types';
 
 class DataRepository {
   private farmers: IFarmer[] = [...SEED_FARMERS];
@@ -23,6 +27,8 @@ class DataRepository {
   private devices: IDevice[] = [...SEED_DEVICES];
   private alerts: IAlert[] = [...SEED_ALERTS];
   private settings: IDairySettings = { ...SEED_SETTINGS };
+  private users: IUser[] = [...SEED_USERS];
+  private auditLogs: IAuditLog[] = [...SEED_AUDIT_LOGS];
 
   constructor() {
     CustomerCodeService.backfillCustomerCodes(this.farmers);
@@ -52,6 +58,8 @@ class DataRepository {
         await Device.insertMany(SEED_DEVICES);
         await Alert.insertMany(SEED_ALERTS);
         await Setting.create(SEED_SETTINGS);
+        await User.insertMany(SEED_USERS);
+        await AuditLog.insertMany(SEED_AUDIT_LOGS);
         console.log('✅ Seed completed successfully.');
       } else {
         // Idempotent migration: backfill any existing MongoDB farmer docs lacking customerCode
@@ -310,6 +318,142 @@ class DataRepository {
     return this.settings;
   }
 
+  // --- USERS ---
+  public async getUsers(): Promise<IUser[]> {
+    if (getDbConnectionStatus()) {
+      return (await User.find().sort({ createdAt: -1 }).lean()) as unknown as IUser[];
+    }
+    return this.users;
+  }
+
+  public async getUserById(id: string): Promise<IUser | null> {
+    if (!id) return null;
+    const formatted = id.trim().toLowerCase();
+    if (getDbConnectionStatus()) {
+      return (await User.findOne({ $or: [{ userId: id }, { username: formatted }] }).lean()) as unknown as IUser | null;
+    }
+    return this.users.find(u => u.userId === id || u.username.toLowerCase() === formatted) || null;
+  }
+
+  public async getUserByUsername(username: string): Promise<IUser | null> {
+    const formatted = (username || '').trim().toLowerCase();
+    if (getDbConnectionStatus()) {
+      return (await User.findOne({ username: formatted }).lean()) as unknown as IUser | null;
+    }
+    return this.users.find(u => u.username.toLowerCase() === formatted) || null;
+  }
+
+  public async addUser(userData: Partial<IUser>): Promise<IUser> {
+    const newUser: IUser = {
+      userId: userData.userId || `USR-${String(this.users.length + 1).padStart(3, '0')}`,
+      name: userData.name || 'New Operator',
+      username: (userData.username || `user${this.users.length + 1}`).toLowerCase().trim(),
+      password: userData.password || 'dairy2026',
+      role: userData.role || 'OPERATOR',
+      status: userData.status || 'ACTIVE',
+      dairyName: userData.dairyName || 'Amrit Dairy Milk Collection Center',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    if (getDbConnectionStatus()) {
+      await User.create(newUser);
+    }
+    this.users.unshift(newUser);
+    return newUser;
+  }
+
+  public async updateUser(id: string, data: Partial<IUser>): Promise<IUser | null> {
+    if (getDbConnectionStatus()) {
+      await User.updateOne({ userId: id }, { $set: { ...data, updatedAt: new Date() } });
+      const doc = await User.findOne({ userId: id }).lean();
+      const idx = this.users.findIndex(u => u.userId === id);
+      if (idx !== -1 && doc) {
+        this.users[idx] = doc as unknown as IUser;
+      }
+      return doc as unknown as IUser | null;
+    }
+    const idx = this.users.findIndex(u => u.userId === id);
+    if (idx !== -1) {
+      this.users[idx] = { ...this.users[idx], ...data, updatedAt: new Date() };
+      return this.users[idx];
+    }
+    return null;
+  }
+
+  // --- AUDIT LOGS ---
+  public async getAuditLogs(filters?: {
+    user?: string;
+    role?: string;
+    action?: string;
+    customerCode?: string;
+    date?: string;
+    search?: string;
+  }): Promise<IAuditLog[]> {
+    let logs: IAuditLog[] = [];
+    if (getDbConnectionStatus()) {
+      logs = (await AuditLog.find().sort({ timestamp: -1 }).lean()) as unknown as IAuditLog[];
+    } else {
+      logs = [...this.auditLogs];
+    }
+
+    if (filters) {
+      if (filters.user) {
+        const u = filters.user.toLowerCase().trim();
+        logs = logs.filter(l => l.userId.toLowerCase().includes(u) || l.userName.toLowerCase().includes(u));
+      }
+      if (filters.role && filters.role !== 'ALL') {
+        logs = logs.filter(l => l.role === filters.role);
+      }
+      if (filters.action && filters.action !== 'ALL') {
+        logs = logs.filter(l => l.action === filters.action);
+      }
+      if (filters.customerCode) {
+        const cc = filters.customerCode.trim().toUpperCase();
+        logs = logs.filter(l => l.customerCode === cc);
+      }
+      if (filters.date) {
+        const d = new Date(filters.date).toDateString();
+        logs = logs.filter(l => new Date(l.timestamp).toDateString() === d);
+      }
+      if (filters.search) {
+        const q = filters.search.toLowerCase().trim();
+        logs = logs.filter(
+          l =>
+            l.auditId.toLowerCase().includes(q) ||
+            l.details.toLowerCase().includes(q) ||
+            (l.entityId && l.entityId.toLowerCase().includes(q)) ||
+            (l.customerCode && l.customerCode.toLowerCase().includes(q)) ||
+            l.userName.toLowerCase().includes(q)
+        );
+      }
+    }
+
+    return logs;
+  }
+
+  public async addAuditLog(logData: Partial<IAuditLog>): Promise<IAuditLog> {
+    const newLog: IAuditLog = {
+      auditId: logData.auditId || `AUD-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
+      timestamp: logData.timestamp || new Date(),
+      userId: logData.userId || 'USR-SYSTEM',
+      userName: logData.userName || 'System Engine',
+      role: logData.role || 'OPERATOR',
+      action: logData.action || 'SYSTEM_NOTICE',
+      entityType: logData.entityType || 'SYSTEM',
+      entityId: logData.entityId || '',
+      customerCode: logData.customerCode || '',
+      details: logData.details || '',
+      ipAddress: logData.ipAddress || '127.0.0.1'
+    };
+
+    if (getDbConnectionStatus()) {
+      await AuditLog.create(newLog);
+    }
+    this.auditLogs.unshift(newLog);
+    return newLog;
+  }
+
   // Helper for test cleanup
   public clear(): void {
     this.farmers = [...SEED_FARMERS];
@@ -318,6 +462,8 @@ class DataRepository {
     this.devices = [...SEED_DEVICES];
     this.alerts = [...SEED_ALERTS];
     this.settings = { ...SEED_SETTINGS };
+    this.users = [...SEED_USERS];
+    this.auditLogs = [...SEED_AUDIT_LOGS];
 
     CustomerCodeService.backfillCustomerCodes(this.farmers);
     const farmerCodeMap = new Map(this.farmers.map(f => [f.farmerId, f.customerCode]));

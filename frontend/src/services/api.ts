@@ -5,7 +5,9 @@ import {
   Device,
   Alert,
   DairySettings,
-  DashboardSummary
+  DashboardSummary,
+  User,
+  AuditLog
 } from '../types';
 
 const API_BASE = '/api';
@@ -17,6 +19,8 @@ export interface ApiResponse<T> {
   summary?: any;
   error?: string;
   message?: string;
+  token?: string;
+  user?: User;
   collection?: MilkCollection;
   qualityAssessment?: any;
 }
@@ -26,17 +30,23 @@ export async function apiClient<T>(
   options: RequestInit = {}
 ): Promise<ApiResponse<T>> {
   const url = `${API_BASE}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
-  const defaultHeaders: HeadersInit = {
+  
+  const token = localStorage.getItem('milkguard_token');
+  const defaultHeaders: Record<string, string> = {
     'Content-Type': 'application/json',
     'Accept': 'application/json'
   };
+
+  if (token) {
+    defaultHeaders['Authorization'] = `Bearer ${token}`;
+  }
 
   try {
     const response = await fetch(url, {
       ...options,
       headers: {
         ...defaultHeaders,
-        ...options.headers
+        ...((options.headers as Record<string, string>) || {})
       }
     });
 
@@ -83,6 +93,35 @@ export async function apiClient<T>(
 }
 
 export const api = {
+  // Auth APIs
+  login: (credentials: { username: string; password?: string }) =>
+    apiClient<{ user: User; token: string }>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(credentials)
+    }),
+  getMe: () => apiClient<User>('/auth/me'),
+  logout: () =>
+    apiClient<any>('/auth/logout', {
+      method: 'POST'
+    }),
+  getUsers: () => apiClient<User[]>('/auth/users'),
+  updateUser: (userId: string, data: Partial<User>) =>
+    apiClient<User>(`/auth/users/${userId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    }),
+
+  // Audit Logs
+  getAuditLogs: (params?: { action?: string; role?: string; userId?: string; customerCode?: string; limit?: number }) => {
+    const qs = params ? '?' + new URLSearchParams(params as any).toString() : '';
+    return apiClient<AuditLog[]>(`/audit-logs${qs}`);
+  },
+  logAudit: (event: Partial<AuditLog>) =>
+    apiClient<AuditLog>('/audit-logs', {
+      method: 'POST',
+      body: JSON.stringify(event)
+    }),
+
   getSummary: () => apiClient<DashboardSummary>('/dashboard/summary'),
   getFarmers: (params?: { search?: string; animalType?: string; status?: string }) => {
     const qs = params ? '?' + new URLSearchParams(params as any).toString() : '';

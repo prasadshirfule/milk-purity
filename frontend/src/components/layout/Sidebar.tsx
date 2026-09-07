@@ -15,19 +15,31 @@ import {
   X,
   Milk,
   Radio,
-  Info
+  Info,
+  ShieldCheck,
+  UserCheck
 } from 'lucide-react';
 import { useDemoData } from '../../context/DemoDataContext';
+import { useAuth } from '../../context/AuthContext';
 
 export interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
+interface NavItem {
+  name: string;
+  path: string;
+  icon: React.ComponentType<any>;
+  badge?: string;
+  count?: number;
+}
+
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const { summary, isDemoMode } = useDemoData();
+  const { user, hasRole } = useAuth();
 
-  const navItems = [
+  const baseNavItems: NavItem[] = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
     { name: 'Milk Testing', path: '/milk-testing', icon: FlaskConical, badge: 'Station' },
     { name: 'Milk Collection', path: '/collection', icon: Coins },
@@ -42,9 +54,24 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       path: '/alerts',
       icon: AlertTriangle,
       count: summary.activeAlertsCount > 0 ? summary.activeAlertsCount : undefined
-    },
+    }
+  ];
+
+  // Admin exclusive navigation items
+  const adminNavItems: NavItem[] = [
+    { name: 'Audit Logs', path: '/audit-logs', icon: ShieldCheck, badge: 'Admin' },
+    { name: 'User Management', path: '/users', icon: UserCheck, badge: 'Admin' }
+  ];
+
+  const bottomNavItems: NavItem[] = [
     { name: 'Settings', path: '/settings', icon: Settings },
     { name: 'How It Works', path: '/about', icon: Info }
+  ];
+
+  const visibleItems = [
+    ...baseNavItems,
+    ...(hasRole('ADMIN') ? adminNavItems : []),
+    ...bottomNavItems
   ];
 
   return (
@@ -84,8 +111,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         </div>
 
         {/* Navigation Items */}
-        <nav className="flex-1 space-y-1.5 px-3 py-4 overflow-y-auto">
-          {navItems.map((item) => {
+        <nav className="flex-1 space-y-1 px-3 py-3 overflow-y-auto">
+          {visibleItems.map((item) => {
             const Icon = item.icon;
             return (
               <NavLink
@@ -109,7 +136,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                       <span>{item.name}</span>
                     </div>
                     {item.badge && (
-                      <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                      <span
+                        className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-md ${
+                          item.badge === 'Admin'
+                            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                            : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                        }`}
+                      >
                         {item.badge}
                       </span>
                     )}

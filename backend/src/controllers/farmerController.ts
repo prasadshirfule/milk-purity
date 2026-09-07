@@ -122,6 +122,21 @@ export const createFarmer = async (req: Request, res: Response): Promise<void> =
       status: status || 'ACTIVE'
     });
 
+    const user = (req as any).user;
+    if (user) {
+      await dataRepository.addAuditLog({
+        userId: user.userId,
+        userName: user.name,
+        role: user.role,
+        action: 'CREATE_CUSTOMER',
+        entityType: 'CUSTOMER',
+        entityId: created.farmerId,
+        customerCode: created.customerCode,
+        details: `Customer account created: ${created.name} (Code: ${created.customerCode}, Village: ${created.village})`,
+        ipAddress: req.ip || '127.0.0.1'
+      });
+    }
+
     res.status(201).json({ success: true, data: created });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
@@ -135,6 +150,22 @@ export const updateFarmer = async (req: Request, res: Response): Promise<void> =
       res.status(404).json({ success: false, error: 'Farmer not found' });
       return;
     }
+
+    const user = (req as any).user;
+    if (user) {
+      await dataRepository.addAuditLog({
+        userId: user.userId,
+        userName: user.name,
+        role: user.role,
+        action: 'UPDATE_CUSTOMER',
+        entityType: 'CUSTOMER',
+        entityId: updated.farmerId,
+        customerCode: updated.customerCode,
+        details: `Customer account updated: ${updated.name} (Code: ${updated.customerCode})`,
+        ipAddress: req.ip || '127.0.0.1'
+      });
+    }
+
     res.json({ success: true, data: updated });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
@@ -148,6 +179,21 @@ export const deleteFarmer = async (req: Request, res: Response): Promise<void> =
       res.status(404).json({ success: false, error: 'Farmer not found' });
       return;
     }
+
+    const user = (req as any).user;
+    if (user) {
+      await dataRepository.addAuditLog({
+        userId: user.userId,
+        userName: user.name,
+        role: user.role,
+        action: 'UPDATE_CUSTOMER',
+        entityType: 'CUSTOMER',
+        entityId: req.params.id,
+        details: `Customer record deleted / deactivated ID: ${req.params.id}`,
+        ipAddress: req.ip || '127.0.0.1'
+      });
+    }
+
     res.json({ success: true, message: 'Farmer deactivated/deleted successfully' });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });

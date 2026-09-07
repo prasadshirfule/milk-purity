@@ -99,6 +99,10 @@ export interface MilkTest {
   aiRecommendation?: AIRecommendation;
   operatorDecision?: 'ACCEPT' | 'REJECT';
   overrideReason?: string;
+  overrideTimestamp?: string | Date;
+  operatorId?: string;
+  operatorName?: string;
+  operatorRole?: UserRole;
   modelVersion?: string;
   scoreExplanation?: string[];
   prediction?: string;
@@ -122,6 +126,9 @@ export interface MilkCollection {
   totalAmount: number;
   qualityScore: number;
   result: TestResult;
+  operatorId?: string;
+  operatorName?: string;
+  operatorRole?: UserRole;
   timestamp: string | Date;
   paymentStatus: 'PAID' | 'PENDING';
 }
@@ -206,6 +213,55 @@ export interface DashboardSummary {
   deviceStatus: DeviceStatus;
   primaryDeviceName: string;
   activeAlertsCount: number;
+}
+
+export type UserRole = 'ADMIN' | 'OPERATOR' | 'QUALITY_OPERATOR' | 'VIEWER';
+export type UserStatus = 'ACTIVE' | 'INACTIVE';
+
+export interface User {
+  userId: string;
+  name: string;
+  username: string;
+  role: UserRole;
+  status: UserStatus;
+  email?: string;
+  phone?: string;
+  createdAt: string | Date;
+  updatedAt?: string | Date;
+  lastLogin?: string | Date;
+}
+
+export type AuditAction =
+  | 'LOGIN'
+  | 'LOGOUT'
+  | 'LOGIN_FAILED'
+  | 'CREATE_CUSTOMER'
+  | 'UPDATE_CUSTOMER'
+  | 'SCAN_CUSTOMER_QR'
+  | 'CREATE_MILK_TEST'
+  | 'QUALITY_RECOMMENDATION'
+  | 'ACCEPT_MILK'
+  | 'REJECT_MILK'
+  | 'OVERRIDE_RECOMMENDATION'
+  | 'CREATE_COLLECTION'
+  | 'PRINT_RECEIPT'
+  | 'UPDATE_SETTINGS'
+  | 'CREATE_USER'
+  | 'UPDATE_USER'
+  | 'SYSTEM_ALERT';
+
+export interface AuditLog {
+  auditId: string;
+  timestamp: string | Date;
+  userId: string;
+  userName: string;
+  role: UserRole;
+  action: AuditAction;
+  entityType: string;
+  entityId?: string;
+  customerCode?: string;
+  details?: Record<string, any>;
+  ipAddress?: string;
 }
 
 export interface MLPredictionResponse {

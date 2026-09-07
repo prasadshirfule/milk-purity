@@ -5,6 +5,7 @@ import { ToastProvider } from './context/ToastContext';
 import { SettingsProvider } from './context/SettingsContext';
 import { DemoDataProvider } from './context/DemoDataContext';
 import { AppLayout } from './components/layout/AppLayout';
+import { UserRole } from './types';
 
 import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
@@ -19,6 +20,8 @@ import { Reports } from './pages/Reports';
 import { Devices } from './pages/Devices';
 import { DeviceDetails } from './pages/DeviceDetails';
 import { Alerts } from './pages/Alerts';
+import { AuditLogs } from './pages/AuditLogs';
+import { UserManagement } from './pages/UserManagement';
 import { Settings } from './pages/Settings';
 import { About } from './pages/About';
 
@@ -26,6 +29,14 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   const { isAuthenticated } = useAuth();
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+  return <>{children}</>;
+};
+
+const RoleRoute: React.FC<{ roles: UserRole[]; children: React.ReactNode }> = ({ roles, children }) => {
+  const { user, hasRole } = useAuth();
+  if (!user || !hasRole(roles)) {
+    return <Navigate to="/dashboard" replace />;
   }
   return <>{children}</>;
 };
@@ -64,6 +75,22 @@ export const App: React.FC = () => {
                   <Route path="/devices" element={<Devices />} />
                   <Route path="/devices/:id" element={<DeviceDetails />} />
                   <Route path="/alerts" element={<Alerts />} />
+                  <Route
+                    path="/audit-logs"
+                    element={
+                      <RoleRoute roles={['ADMIN']}>
+                        <AuditLogs />
+                      </RoleRoute>
+                    }
+                  />
+                  <Route
+                    path="/users"
+                    element={
+                      <RoleRoute roles={['ADMIN']}>
+                        <UserManagement />
+                      </RoleRoute>
+                    }
+                  />
                   <Route path="/settings" element={<Settings />} />
                   <Route path="/about" element={<About />} />
                   <Route path="*" element={<Navigate to="/dashboard" replace />} />

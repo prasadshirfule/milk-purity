@@ -1,9 +1,10 @@
 import React from 'react';
-import { Menu, Search, Cpu, Sparkles, User as UserIcon, LogOut } from 'lucide-react';
+import { Menu, Search, Cpu, Sparkles, User as UserIcon, LogOut, ShieldCheck } from 'lucide-react';
 import { NotificationDropdown } from './NotificationDropdown';
 import { useAuth } from '../../context/AuthContext';
 import { useDemoData } from '../../context/DemoDataContext';
 import { useLocation } from 'react-router-dom';
+import { UserRole } from '../../types';
 
 export interface HeaderProps {
   onMenuToggle: () => void;
@@ -24,16 +25,24 @@ export const Header: React.FC<HeaderProps> = ({ onMenuToggle }) => {
         return 'Real-Time Milk Quality Testing';
       case '/collection':
         return 'Milk Collection & Financial Ledger';
+      case '/ledger':
+        return 'Farmer Accounts & Payout Ledger';
       case '/farmers':
         return 'Farmer Registry & Accounts';
       case '/history':
         return 'Historical Milk Test Records';
+      case '/analytics':
+        return 'Quality Telemetry & AI Analytics';
       case '/reports':
-        return 'Analytics & Quality Reports';
+        return 'Quality & Yield Inspection Reports';
       case '/devices':
         return 'IoT Hardware & ESP32 Nodes';
       case '/alerts':
         return 'System Alerts & Quality Audit';
+      case '/audit-logs':
+        return 'Audit Logs & Compliance Ledger';
+      case '/users':
+        return 'Operator & User Management';
       case '/settings':
         return 'Dairy Standards & Settings';
       case '/about':
@@ -42,6 +51,21 @@ export const Header: React.FC<HeaderProps> = ({ onMenuToggle }) => {
         if (path.startsWith('/farmers/')) return 'Farmer Profile & History';
         if (path.startsWith('/devices/')) return 'IoT Device Telemetry';
         return 'Dairy Management Portal';
+    }
+  };
+
+  const getRoleColor = (role?: UserRole) => {
+    switch (role) {
+      case 'ADMIN':
+        return 'bg-amber-500/10 text-amber-700 border-amber-300';
+      case 'OPERATOR':
+        return 'bg-dairy-500/10 text-dairy-700 border-dairy-300';
+      case 'QUALITY_OPERATOR':
+        return 'bg-purple-500/10 text-purple-700 border-purple-300';
+      case 'VIEWER':
+        return 'bg-slate-500/10 text-slate-700 border-slate-300';
+      default:
+        return 'bg-slate-100 text-slate-700 border-slate-200';
     }
   };
 
@@ -117,14 +141,22 @@ export const Header: React.FC<HeaderProps> = ({ onMenuToggle }) => {
 
         <div className="h-6 w-[1px] bg-slate-200 hidden sm:block" />
 
-        {/* User Profile avatar */}
+        {/* User Profile avatar & Role badge */}
         <div className="flex items-center gap-2.5 pl-1">
           <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-dairy-600 to-teal-400 text-white font-bold text-xs flex items-center justify-center shadow-sm">
             {user ? user.name.slice(0, 2).toUpperCase() : 'OP'}
           </div>
           <div className="hidden xl:block text-left">
             <p className="text-xs font-bold text-slate-800 leading-none">{user?.name || 'Operator'}</p>
-            <p className="text-[10px] text-slate-400 mt-0.5 capitalize">{user?.role || 'Dairy Operator'}</p>
+            <div className="flex items-center gap-1 mt-0.5">
+              <span
+                className={`text-[9px] font-extrabold uppercase tracking-wider px-1.5 py-0.2 rounded border ${getRoleColor(
+                  user?.role
+                )}`}
+              >
+                {user?.role || 'OPERATOR'}
+              </span>
+            </div>
           </div>
           <button
             onClick={logout}

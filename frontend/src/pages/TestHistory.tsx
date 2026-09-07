@@ -9,7 +9,7 @@ import { ParameterAnalysisTable } from '../components/milk-test/ParameterAnalysi
 import { QualityCalculator } from '../services/qualityCalculator';
 import { useSettings } from '../context/SettingsContext';
 import { MilkTest } from '../types';
-import { History, Search, Filter, Calendar, Eye, Download } from 'lucide-react';
+import { History, Search, Filter, Calendar, Eye, Download, UserCheck } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 
 export const TestHistory: React.FC = () => {
@@ -33,6 +33,7 @@ export const TestHistory: React.FC = () => {
       t.testId.toLowerCase().includes(q) ||
       (t.customerCode && t.customerCode.toLowerCase().includes(q)) ||
       (t.farmerName && t.farmerName.toLowerCase().includes(q)) ||
+      (t.operatorName && t.operatorName.toLowerCase().includes(q)) ||
       t.farmerId.toLowerCase().includes(q);
 
     const matchesResult = resultFilter === 'ALL' || t.result === resultFilter;
@@ -46,10 +47,10 @@ export const TestHistory: React.FC = () => {
   const paginatedTests = filteredTests.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const handleExportCSV = () => {
-    const headers = ['Test ID,Customer Code,Farmer ID,Farmer Name,Quantity (L),Temperature (C),pH,Fat (%),Density (g/mL),Conductivity (mS/cm),Score (%),Result,Date'];
+    const headers = ['Test ID,Customer Code,Farmer ID,Farmer Name,Quantity (L),Temperature (C),pH,Fat (%),Density (g/mL),Conductivity (mS/cm),Score (%),Recommendation,Decision,Override Reason,Operator,Result,Date'];
     const rows = filteredTests.map(
       (t) =>
-        `"${t.testId}","${t.customerCode || ''}","${t.farmerId}","${t.farmerName || ''}",${t.quantity},${t.temperature},${t.ph},${t.fat},${t.density},${t.conductivity},${t.purityScore || t.qualityScore},"${t.result}","${new Date(
+        `"${t.testId}","${t.customerCode || ''}","${t.farmerId}","${t.farmerName || ''}",${t.quantity},${t.temperature},${t.ph},${t.fat},${t.density},${t.conductivity},${t.purityScore || t.qualityScore},"${t.aiRecommendation || ''}","${t.operatorDecision || ''}","${t.overrideReason || ''}","${t.operatorName || 'Historical record'}",${t.result}","${new Date(
           t.timestamp
         ).toISOString()}"`
     );
@@ -86,7 +87,7 @@ export const TestHistory: React.FC = () => {
             Complete Milk Testing Audit Logs
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Full historical multi-sensor testing records and laboratory determinations
+            Full historical multi-sensor testing records, operator decisions, and quality determinations
           </p>
         </div>
 
@@ -106,7 +107,7 @@ export const TestHistory: React.FC = () => {
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Search by Test ID, farmer name, or ID..."
+            placeholder="Search by Test ID, farmer, operator, code..."
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
@@ -212,16 +213,21 @@ export const TestHistory: React.FC = () => {
             )
           },
           {
+            header: 'Operator',
+            accessor: (t) => (
+              <div>
+                <p className="text-xs font-semibold text-slate-800">
+                  {t.operatorName || 'Historical record'}
+                </p>
+                {t.operatorRole && (
+                  <span className="text-[10px] font-bold text-slate-400">{t.operatorRole}</span>
+                )}
+              </div>
+            )
+          },
+          {
             header: 'Quantity',
             accessor: (t) => <span className="font-bold font-mono text-slate-800">{t.quantity} L</span>
-          },
-          {
-            header: 'Est. Fat %',
-            accessor: (t) => <span className="font-mono font-semibold">{t.fat}%</span>
-          },
-          {
-            header: 'pH',
-            accessor: (t) => <span className="font-mono font-semibold">{t.ph}</span>
           },
           {
             header: 'Purity Score',
@@ -243,9 +249,14 @@ export const TestHistory: React.FC = () => {
           {
             header: 'Operator Decision',
             accessor: (t) => (
-              <span className="text-xs font-semibold text-slate-700">
-                {t.operatorDecision || (t.result === 'REJECTED' ? 'REJECT' : 'ACCEPT')}
-              </span>
+              <div>
+                <span className="text-xs font-semibold text-slate-700">
+                  {t.operatorDecision || (t.result === 'REJECTED' ? 'REJECT' : 'ACCEPT')}
+                </span>
+                {t.overrideReason && (
+                  <span className="block text-[10px] text-amber-600 font-bold">OVERRIDE</span>
+                )}
+              </div>
             )
           },
           {
@@ -325,18 +336,33 @@ export const TestHistory: React.FC = () => {
                 <span className="font-bold text-slate-800">{selectedTest.operatorDecision || (selectedTest.result === 'REJECTED' ? 'REJECT' : 'ACCEPT')}</span>
               </div>
               <div>
-                <span className="text-[10px] uppercase font-bold text-slate-400 block">Model Version</span>
-                <span className="font-mono text-slate-600 text-[11px]">{selectedTest.modelVersion || 'screening-baseline-v1'}</span>
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">Operator Identity</span>
+                <span className="font-semibold text-slate-800 text-[11px]">
+                  {selectedTest.operatorName || 'Historical record — operator info unavailable'}
+                </span>
+                {selectedTest.operatorRole && (
+                  <span className="text-[10px] text-slate-500 block">({selectedTest.operatorRole})</span>
+                )}
               </div>
             </div>
 
             {/* Override Reason Audit Note if present */}
             {selectedTest.overrideReason && (
-              <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs">
-                <strong className="block font-bold text-amber-950 uppercase text-[10px] tracking-wider mb-0.5">
-                  Operator Manual Override Logged:
-                </strong>
+              <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs">
+                <div className="flex items-center justify-between mb-1">
+                  <strong className="block font-bold text-amber-950 uppercase text-[10px] tracking-wider">
+                    Operator Manual Override Logged:
+                  </strong>
+                  {selectedTest.overrideTimestamp && (
+                    <span className="text-[10px] text-amber-700 font-mono">
+                      {new Date(selectedTest.overrideTimestamp).toLocaleString()}
+                    </span>
+                  )}
+                </div>
                 <p className="italic font-medium">"{selectedTest.overrideReason}"</p>
+                <p className="text-[10px] text-amber-800 mt-1">
+                  Authorized by: {selectedTest.operatorName || 'Authorized Operator'} ({selectedTest.operatorRole || 'OPERATOR'})
+                </p>
               </div>
             )}
 

@@ -107,6 +107,10 @@ export interface IMilkTest {
   result: TestResult;
   ratePerLiter?: number;
   totalAmount?: number;
+  operatorId?: string;
+  operatorName?: string;
+  operatorRole?: UserRole;
+  overrideTimestamp?: Date;
   notes?: string;
 }
 
@@ -122,8 +126,56 @@ export interface IMilkCollection {
   totalAmount: number;
   qualityScore: number;
   result: TestResult;
+  operatorId?: string;
+  operatorName?: string;
   timestamp: Date;
   paymentStatus: 'PAID' | 'PENDING';
+}
+
+export type UserRole = 'ADMIN' | 'OPERATOR' | 'QUALITY_OPERATOR' | 'VIEWER';
+export type UserStatus = 'ACTIVE' | 'INACTIVE';
+
+export interface IUser {
+  userId: string;
+  name: string;
+  username: string;
+  password?: string;
+  passwordHash?: string;
+  role: UserRole;
+  status: UserStatus;
+  dairyName?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type AuditAction =
+  | 'LOGIN'
+  | 'LOGOUT'
+  | 'CREATE_CUSTOMER'
+  | 'UPDATE_CUSTOMER'
+  | 'SCAN_CUSTOMER_QR'
+  | 'CREATE_MILK_TEST'
+  | 'QUALITY_RECOMMENDATION'
+  | 'ACCEPT_MILK'
+  | 'REJECT_MILK'
+  | 'OVERRIDE_RECOMMENDATION'
+  | 'CREATE_COLLECTION'
+  | 'PRINT_RECEIPT'
+  | 'UPDATE_SETTINGS'
+  | 'USER_MANAGEMENT';
+
+export interface IAuditLog {
+  auditId: string;
+  timestamp: Date;
+  userId: string;
+  userName: string;
+  role: UserRole | string;
+  action: AuditAction | string;
+  entityType: string;
+  entityId?: string;
+  customerCode?: string;
+  details: string;
+  ipAddress?: string;
 }
 
 export interface IDeviceSensorHealth {

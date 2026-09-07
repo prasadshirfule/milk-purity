@@ -16,6 +16,8 @@ const MilkCollectionSchema = new Schema<IMilkCollectionDocument>(
     totalAmount: { type: Number, required: true },
     qualityScore: { type: Number, required: true },
     result: { type: String, enum: ['ACCEPTED', 'REJECTED', 'WARNING'], default: 'ACCEPTED' },
+    operatorId: { type: String, default: 'USR-002' },
+    operatorName: { type: String, default: 'Station Operator' },
     timestamp: { type: Date, default: Date.now, index: true },
     paymentStatus: { type: String, enum: ['PAID', 'PENDING'], default: 'PAID' }
   },

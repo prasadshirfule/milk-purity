@@ -504,6 +504,17 @@ export const DemoDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
       const testId = `TEST-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
 
+      let currentOp = { userId: 'usr_op_01', name: 'Rajendra Deshmukh', role: 'OPERATOR' as const };
+      try {
+        const storedUser = localStorage.getItem('milkguard_user');
+        if (storedUser) {
+          const parsed = JSON.parse(storedUser);
+          if (parsed.userId) currentOp = parsed;
+        }
+      } catch (e) {}
+
+      const isOverride = recommendedResult === 'REJECTED' && decision === 'ACCEPT';
+
       const newTest: MilkTest = {
         testId,
         farmerId: actualFarmerId,
@@ -525,6 +536,10 @@ export const DemoDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         aiRecommendation: quality.aiRecommendation,
         operatorDecision: decision,
         overrideReason: trimmedOverrideReason || undefined,
+        overrideTimestamp: isOverride ? new Date().toISOString() : undefined,
+        operatorId: currentOp.userId,
+        operatorName: currentOp.name,
+        operatorRole: currentOp.role,
         modelVersion: quality.modelVersion || 'screening-baseline-v1',
         scoreExplanation: quality.scoreExplanation || [],
         prediction: finalResult === 'REJECTED' ? 'DEMO_ANOMALY' : 'DEMO_NORMAL',
@@ -553,6 +568,9 @@ export const DemoDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           totalAmount,
           qualityScore: newTest.qualityScore,
           result: newTest.result,
+          operatorId: currentOp.userId,
+          operatorName: currentOp.name,
+          operatorRole: currentOp.role,
           timestamp: newTest.timestamp,
           paymentStatus: 'PAID'
         };

@@ -513,6 +513,14 @@ export const FarmerDetails: React.FC = () => {
               )
             },
             {
+              header: 'Operator',
+              accessor: (t) => (
+                <span className="text-xs text-slate-600 font-medium">
+                  {t.operatorName || 'Historical record'}
+                </span>
+              )
+            },
+            {
               header: 'Result',
               accessor: (t) => (
                 <div className="space-y-0.5">

@@ -9,6 +9,8 @@ import alertRoutes from './routes/alertRoutes';
 import dashboardRoutes from './routes/dashboardRoutes';
 import mlRoutes from './routes/mlRoutes';
 import settingRoutes from './routes/settingRoutes';
+import authRoutes from './routes/authRoutes';
+import auditRoutes from './routes/auditRoutes';
 import { errorHandler } from './middleware/errorHandler';
 import { ENV } from './config/environment';
 
@@ -59,6 +61,9 @@ export const createApp = (): Application => {
   });
 
   // REST API Routes
+  app.use('/api/auth', authRoutes);
+  app.use('/api/audit-logs', auditRoutes);
+  app.use('/api/audit', auditRoutes);
   app.use('/api/farmers', farmerRoutes);
   app.use('/api/customers', farmerRoutes); // customer code & lookup alias
   app.use('/api/tests', testRoutes);
