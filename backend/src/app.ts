@@ -1,4 +1,4 @@
-import express, { Application, Request, Response } from 'express';
+import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import farmerRoutes from './routes/farmerRoutes';
 import testRoutes from './routes/testRoutes';
@@ -13,6 +13,19 @@ import authRoutes from './routes/authRoutes';
 import auditRoutes from './routes/auditRoutes';
 import { errorHandler } from './middleware/errorHandler';
 import { ENV } from './config/environment';
+import { connectDatabase } from './config/db';
+import { dataRepository } from './services/seedService';
+
+let dbInitPromise: Promise<void> | null = null;
+const ensureDbInitialized = async () => {
+  if (!dbInitPromise) {
+    dbInitPromise = (async () => {
+      await connectDatabase();
+      await dataRepository.seedDatabaseIfEmpty();
+    })();
+  }
+  return dbInitPromise;
+};
 
 export const createApp = (): Application => {
   const app = express();
@@ -32,12 +45,17 @@ export const createApp = (): Application => {
 
   app.use(cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (e.g. mobile apps, curl, server-to-server)
+      // Allow requests with no origin (e.g. mobile apps, curl, server-to-server, same-origin)
       if (!origin) {
         return callback(null, true);
       }
-      // Allow matched or allowlisted origins
-      if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
+      // Allow matched or allowlisted origins, or any *.vercel.app deployment
+      if (
+        allowedOrigins.includes('*') ||
+        allowedOrigins.includes(origin) ||
+        origin.endsWith('.vercel.app') ||
+        origin === ENV.FRONTEND_URL
+      ) {
         return callback(null, true);
       }
       // Reject unknown origins
@@ -49,8 +67,18 @@ export const createApp = (): Application => {
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 
+  // Serverless / Lambda DB initialization middleware
+  app.use(async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      await ensureDbInitialized();
+    } catch (err) {
+      // Graceful fallback to demo / in-memory mode
+    }
+    next();
+  });
+
   // Health check
-  app.get('/api/health', (req: Request, res: Response) => {
+  app.get(['/api', '/api/health'], (req: Request, res: Response) => {
     res.json({
       status: 'healthy',
       system: 'MILKGUARD — Smart Milk Quality & Dairy Management API',
@@ -81,3 +109,4 @@ export const createApp = (): Application => {
 
   return app;
 };
+

@@ -188,7 +188,38 @@ npm run dev
 
 ---
 
-### 3. Individual Component Commands
+### 3. Vercel Cloud Deployment (Production Multi-Service)
+
+MILKGUARD is pre-configured with a root [`vercel.json`](file:///e:/MILK-PURITY/vercel.json) supporting both the Vite React SPA frontend and the Node/Express serverless backend on a unified domain:
+
+```
+Browser Request
+  ├── /api/*        ──► Vercel Serverless Function (api/index.ts ──► Express Backend)
+  └── /* (SPA Route)──► Vercel Static CDN (frontend/dist/index.html ──► React Router)
+```
+
+#### Step-by-Step Vercel Deployment:
+1. **Import Repository**: In the [Vercel Dashboard](https://vercel.com/new), select and import the `milk-purity` repository.
+2. **Framework Preset**: Vercel will automatically detect the root `vercel.json` configuration.
+3. **Build & Output Settings**:
+   - **Build Command**: `npm run build`
+   - **Output Directory**: `frontend/dist`
+4. **Environment Variables** (Configure in Vercel Project Settings > Environment Variables):
+
+| Variable | Recommended Value | Description |
+| :--- | :--- | :--- |
+| `DEMO_MODE` | `true` (or `false`) | `true` for standalone demo; `false` for live MongoDB Atlas connection |
+| `NODE_ENV` | `production` | Production runtime environment |
+| `MONGODB_URI` | `mongodb+srv://...` | MongoDB connection string (Required if `DEMO_MODE=false`) |
+| `JWT_SECRET` | `<random-64-char-hex>` | Operator session signing key (Required if `DEMO_MODE=false`) |
+| `ESP32_API_KEY` | `<device-master-key>` | Default device authentication secret |
+| `ML_SERVICE_URL` | `http://localhost:8000` | Optional external Python FastAPI inference endpoint |
+
+5. **Deploy**: Click **Deploy**. Vercel will build both the frontend bundle and serverless API endpoints.
+
+---
+
+### 4. Individual Component Commands
 
 #### Running Frontend Only
 ```bash
