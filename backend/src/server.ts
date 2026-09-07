@@ -3,9 +3,9 @@ import { ENV } from './config/environment';
 import { connectDatabase } from './config/db';
 import { dataRepository } from './services/seedService';
 
-const startServer = async () => {
-  const app = createApp();
+export const app = createApp();
 
+const startServer = async () => {
   // Attempt database connection
   await connectDatabase();
   await dataRepository.seedDatabaseIfEmpty();
@@ -27,6 +27,11 @@ const startServer = async () => {
   return server;
 };
 
-startServer().catch((err) => {
-  console.error('Fatal Server Startup Error:', err);
-});
+if (process.env.NODE_ENV !== 'test') {
+  startServer().catch((err) => {
+    console.error('Fatal Server Startup Error:', err);
+  });
+}
+
+export default app;
+
