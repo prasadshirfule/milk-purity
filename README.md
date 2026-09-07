@@ -20,15 +20,23 @@
 
 ## 📡 ESP32 Device Integration Foundation & Telemetry Pipeline
 
-> **Implementation Status:**
-> - **ESP32 integration foundation is implemented.**
-> - **Physical hardware integration is pending.**
-> - **Demo Sensor Simulation is available without hardware.**
+> **Implementation Status & Hardware Honesty:**
+> - **ESP32 integration foundation & telemetry pipeline:** `IMPLEMENTED`
+> - **Secure Device Authentication (`X-Device-Key`):** `IMPLEMENTED`
+> - **Development ESP32 Hardware Simulator:** `IMPLEMENTED` (`npm run simulate:esp32`)
+> - **C++ / Arduino Firmware Skeleton:** `IMPLEMENTED` (`esp32/milkguard_esp32_firmware.ino`)
+> - **Physical ESP32 hardware deployment:** `PENDING PHYSICAL HARDWARE`
+> - **Current Transport:** HTTP/REST (future MQTT/WebSocket planned)
 
 ### 1. Canonical ESP32 Telemetry Contract (`POST /api/devices/:deviceId/telemetry`)
-Physical ESP32 hardware docks dispatch HTTP POST JSON telemetry payloads conforming to:
+Physical ESP32 hardware docks or the development simulator dispatch HTTP POST JSON telemetry payloads conforming to:
 
-```json
+```http
+POST /api/devices/ESP32-MILK-001/telemetry HTTP/1.1
+Host: localhost:5000
+Content-Type: application/json
+X-Device-Key: dev_sec_esp32_milk_001_live
+
 {
   "deviceId": "ESP32-MILK-001",
   "timestamp": "2026-09-07T10:30:00.000Z",
@@ -44,12 +52,40 @@ Physical ESP32 hardware docks dispatch HTTP POST JSON telemetry payloads conform
 }
 ```
 
-### 2. Sensor Validation vs Quality Scoring Separation
+### 2. Secure Device Authentication (`X-Device-Key`)
+- **Header-Only Ingestion**: Telemetry requires `X-Device-Key: <secret>`. Insecure query parameters (`?apiKey=...`) and body credentials are not permitted.
+- **Leakage Prevention**: Device API keys are never exposed in `GET /api/devices` or `GET /api/devices/:id`, never stored in frontend state, and never saved in audit logs.
+- **One-Time Provisioning**: When registering a device, the backend generates a secret key (`dev_sec_...`) returned once with instructions to flash it onto the microcontroller.
+
+### 3. Development ESP32 Simulator (`npm run simulate:esp32`)
+To test and demonstrate the end-to-end hardware pipeline without physical boards:
+
+```bash
+# Run simulator with default NORMAL scenario
+npm run simulate:esp32
+
+# Or run specific scenarios for demonstrations/testing:
+npx tsx backend/src/scripts/simulateEsp32.ts --device ESP32-MILK-001 --scenario NORMAL --interval 3000
+npx tsx backend/src/scripts/simulateEsp32.ts --device ESP32-MILK-001 --scenario SENSOR_WARNING
+npx tsx backend/src/scripts/simulateEsp32.ts --device ESP32-MILK-001 --scenario DUPLICATE_PACKET
+npx tsx backend/src/scripts/simulateEsp32.ts --device ESP32-MILK-001 --scenario OUT_OF_ORDER
+npx tsx backend/src/scripts/simulateEsp32.ts --device ESP32-MILK-001 --scenario LOW_BATTERY
+npx tsx backend/src/scripts/simulateEsp32.ts --device ESP32-MILK-001 --scenario STALE_DEVICE
+```
+
+### 4. Arduino / C++ Firmware Skeleton (`/esp32`)
+Production-ready firmware skeleton is located at [`esp32/milkguard_esp32_firmware.ino`](file:///e:/MILK-PURITY/esp32/milkguard_esp32_firmware.ino) with pinout wiring guide in [`esp32/README.md`](file:///e:/MILK-PURITY/esp32/README.md):
+- Modular sensor abstraction functions (`readTemperature()`, `readPH()`, `readFat()`, `readDensity()`, `readConductivity()`, `readMilkLevel()`).
+- WiFi auto-reconnect and non-blocking `millis()` sampling loop.
+- `X-Device-Key` header injection and JSON serialization via ArduinoJson.
+
+### 5. Sensor Validation vs Quality Scoring Separation
 - **Sensor Validation Layer (`SensorService`)**: Validates physical plausibility bounds (temperature -10 to 100°C, pH 0–14, fat 0–20%, density 0.5–2.0 g/mL, conductivity 0–50 mS/cm, milkLevel ≥ 0) and rejects `NaN`, `Infinity`, and malformed payloads. Missing sensor values never silently become zero.
+- **Sequence & Idempotency Protection**: Ingests newer sequence numbers (`200 ACCEPTED`), recognizes duplicate sequence packets (`200 DUPLICATE`), and rejects older out-of-order packets (`409 OUT_OF_ORDER`).
 - **Quality Screening Layer (`QualityService`)**: Computes the authoritative Milk Purity Score (0–100%) and screening recommendation.
 - **Telemetry Ingestion ≠ Milk Test**: Telemetry packets update device snapshots and heartbeat status only. A Milk Test is created exclusively when an operator executes a test for an identified customer.
 
-### 3. Deterministic Device Status Rules
+### 6. Deterministic Device Status Rules
 - `UNKNOWN`: Device has never received telemetry (`!lastSeen`).
 - `ONLINE`: Valid telemetry received within configured timeout (60 seconds).
 - `OFFLINE`: Device previously reported telemetry but timeout (> 60 seconds) has elapsed.

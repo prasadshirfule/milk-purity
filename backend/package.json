@@ -8,6 +8,7 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test src/__tests__/**/*.test.ts",
+    "simulate:esp32": "tsx src/scripts/simulateEsp32.ts",
     "start": "node dist/server.js"
   },
   "dependencies": {

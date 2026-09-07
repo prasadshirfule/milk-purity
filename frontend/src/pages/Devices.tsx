@@ -6,7 +6,7 @@ import { LiveSensorPanel } from '../components/devices/LiveSensorPanel';
 import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
 import { Input } from '../components/common/Input';
-import { Cpu, Wifi, Radio, Code2, Plus, RefreshCw, Info, AlertTriangle } from 'lucide-react';
+import { Cpu, Wifi, Radio, Code2, Plus, Key, Copy, CheckCircle2, Info, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 import { api } from '../services/api';
 import { Device, SensorReading } from '../types';
@@ -21,6 +21,8 @@ export const Devices: React.FC = () => {
   const [isCodeModalOpen, setIsCodeModalOpen] = useState(false);
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
+  const [provisionedKeyInfo, setProvisionedKeyInfo] = useState<{ deviceId: string; key: string } | null>(null);
+  const [hasCopiedKey, setHasCopiedKey] = useState(false);
 
   // New Device Form State
   const [newDeviceId, setNewDeviceId] = useState('');
@@ -87,11 +89,21 @@ export const Devices: React.FC = () => {
       });
 
       if (res.success) {
-        showToast(`Device '${newDeviceId}' registered successfully!`, 'success');
+        const provKey = (res.data as any)?.provisioningKey;
         setIsRegisterModalOpen(false);
         setNewDeviceId('');
         setNewDeviceName('');
         refreshData();
+
+        if (provKey) {
+          setProvisionedKeyInfo({
+            deviceId: (res.data as any)?.deviceId || newDeviceId,
+            key: provKey
+          });
+          setHasCopiedKey(false);
+        } else {
+          showToast(`Device registered successfully!`, 'success');
+        }
       } else {
         showToast(res.error || 'Failed to register device', 'error');
       }
@@ -100,6 +112,12 @@ export const Devices: React.FC = () => {
     } finally {
       setIsRegistering(false);
     }
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setHasCopiedKey(true);
+    showToast('X-Device-Key copied to clipboard!', 'success');
   };
 
   const activeCount = devices.filter((d) => d.status === 'ONLINE' || d.status === 'CONNECTED').length;
@@ -114,7 +132,7 @@ export const Devices: React.FC = () => {
             ESP32 Sensor Hardware & Analyzer Nodes
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Real-time telemetry and management of dock testing hardware & multi-probe analyzer nodes
+            Real-time telemetry, device provisioning, and status of dock testing multi-probe hardware
           </p>
         </div>
 
@@ -144,7 +162,7 @@ export const Devices: React.FC = () => {
       <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-start gap-3">
         <Info className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
         <div className="text-xs text-amber-950 leading-relaxed">
-          <strong className="font-semibold text-amber-950">ESP32 Integration Foundation:</strong> The software telemetry pipeline is fully real-time ready. Physical ESP32 microcontrollers send telemetry via <code className="px-1.5 py-0.5 rounded bg-amber-200/60 font-mono text-[11px] font-bold">POST /api/devices/:deviceId/telemetry</code>. When physical hardware is not connected, demo telemetry is explicitly labeled <strong>DEMO SENSOR DATA</strong>.
+          <strong className="font-semibold text-amber-950">Secure ESP32 Integration Foundation:</strong> Physical microcontrollers stream authenticated telemetry via header <code className="px-1.5 py-0.5 rounded bg-amber-200/60 font-mono text-[11px] font-bold">X-Device-Key</code> to <code className="px-1.5 py-0.5 rounded bg-amber-200/60 font-mono text-[11px] font-bold">POST /api/devices/:deviceId/telemetry</code>. In the absence of physical microcontrollers, simulated telemetry is available via <code className="px-1.5 py-0.5 rounded bg-amber-200/60 font-mono text-[11px] font-bold">npm run simulate:esp32</code> and explicitly labeled <strong>DEMO SENSOR DATA</strong>.
         </div>
       </div>
 
@@ -175,6 +193,7 @@ export const Devices: React.FC = () => {
           deviceId={selectedDevice?.deviceId || selectedDeviceId}
           deviceName={selectedDevice?.name || 'Selected Device'}
           deviceStatus={selectedDevice?.status || 'ONLINE'}
+          calibrationStatus={selectedDevice?.calibrationStatus || 'CALIBRATED'}
           isDemo={isDemoMode || selectedDevice?.deviceId === 'ESP32-DEMO-001'}
           onSimulateTick={handleSimulateTick}
         />
@@ -196,11 +215,11 @@ export const Devices: React.FC = () => {
 
         <div className="p-5 rounded-2xl bg-white border border-slate-200/80 flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-dairy-50 text-dairy-600 flex items-center justify-center">
-            <Radio className="w-6 h-6" />
+            <ShieldCheck className="w-6 h-6" />
           </div>
           <div>
-            <span className="text-xs uppercase font-bold text-slate-400 block">Telemetry Transport</span>
-            <span className="text-xl font-bold text-slate-900 font-mono">REST JSON (Live Ready)</span>
+            <span className="text-xs uppercase font-bold text-slate-400 block">Telemetry Security</span>
+            <span className="text-xl font-bold text-slate-900 font-mono">X-Device-Key Auth</span>
           </div>
         </div>
 
@@ -323,6 +342,45 @@ export const Devices: React.FC = () => {
         </form>
       </Modal>
 
+      {/* One-Time Device Provisioning Key Modal */}
+      <Modal
+        isOpen={Boolean(provisionedKeyInfo)}
+        onClose={() => setProvisionedKeyInfo(null)}
+        title="⚠️ Save ESP32 Authentication Key"
+        description="This device secret will be shown ONCE. Store it in your microcontroller firmware."
+        maxWidth="md"
+      >
+        <div className="space-y-4">
+          <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-950 space-y-2">
+            <p className="font-bold">
+              Device: {provisionedKeyInfo?.deviceId}
+            </p>
+            <p>
+              Your physical ESP32 must send this key in the <code className="font-mono font-bold bg-amber-200/60 px-1 py-0.5 rounded">X-Device-Key</code> HTTP header with every telemetry dispatch.
+            </p>
+          </div>
+
+          <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between gap-2">
+            <span className="font-mono text-xs text-emerald-400 select-all break-all">
+              {provisionedKeyInfo?.key}
+            </span>
+            <button
+              onClick={() => provisionedKeyInfo && copyToClipboard(provisionedKeyInfo.key)}
+              className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 shrink-0"
+              title="Copy to clipboard"
+            >
+              {hasCopiedKey ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+            </button>
+          </div>
+
+          <div className="flex justify-end pt-2">
+            <Button variant="primary" size="sm" onClick={() => setProvisionedKeyInfo(null)}>
+              I Have Saved This Key
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
       {/* ESP32 JSON Schema Modal */}
       <Modal
         isOpen={isCodeModalOpen}
@@ -336,6 +394,7 @@ export const Devices: React.FC = () => {
             <pre>{`POST /api/devices/ESP32-MILK-001/telemetry HTTP/1.1
 Host: milkguard-server:5000
 Content-Type: application/json
+X-Device-Key: dev_key_esp32_milk_001_live
 
 {
   "deviceId": "ESP32-MILK-001",
@@ -353,7 +412,7 @@ Content-Type: application/json
           </div>
 
           <p className="text-xs text-slate-600 leading-relaxed">
-            The backend validates each sensor reading within physical bounds (-10 to 100°C, pH 0-14, fat 0-20%, density 0.5-2.0 g/mL, conductivity 0-50 mS/cm, milkLevel ≥ 0) and caches the latest reading for instant one-click test capture.
+            The backend validates each sensor reading within physical bounds (-10 to 100°C, pH 0-14, fat 0-20%, density 0.5-2.0 g/mL, conductivity 0-50 mS/cm, milkLevel ≥ 0), ensures monotonic sequence numbers, and updates the latest reading snapshot.
           </p>
 
           <div className="flex justify-end pt-2">

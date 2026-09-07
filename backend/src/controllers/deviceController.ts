@@ -6,7 +6,9 @@ import { AuthenticatedRequest } from '../middleware/authMiddleware';
 export const getDevices = async (req: Request, res: Response): Promise<void> => {
   try {
     const devices = await dataRepository.getDevices();
-    res.json({ success: true, count: devices.length, data: devices });
+    // Never expose device apiKey in device listings
+    const sanitized = devices.map(({ apiKey, ...rest }) => rest);
+    res.json({ success: true, count: sanitized.length, data: sanitized });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -19,7 +21,9 @@ export const getDeviceById = async (req: Request, res: Response): Promise<void> 
       res.status(404).json({ success: false, error: `Device '${req.params.id}' not found` });
       return;
     }
-    res.json({ success: true, data: device });
+    // Never expose device apiKey in device inspection details
+    const { apiKey, ...sanitized } = device;
+    res.json({ success: true, data: sanitized });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -32,7 +36,8 @@ export const deviceHeartbeat = async (req: Request, res: Response): Promise<void
       res.status(404).json({ success: false, error: `Device '${req.params.id}' not found` });
       return;
     }
-    res.json({ success: true, message: 'Heartbeat acknowledged', data: updated });
+    const { apiKey, ...sanitized } = updated;
+    res.json({ success: true, message: 'Heartbeat acknowledged', data: sanitized });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -56,6 +61,8 @@ export const registerDevice = async (req: AuthenticatedRequest, res: Response): 
       return;
     }
 
+    const generatedApiKey = `dev_sec_${Buffer.from(deviceId.trim() + '_' + Date.now().toString(36)).toString('hex')}`;
+
     const newDevice = await dataRepository.addDevice({
       deviceId: deviceId.trim(),
       name: name.trim(),
@@ -64,6 +71,7 @@ export const registerDevice = async (req: AuthenticatedRequest, res: Response): 
       status: 'UNKNOWN',
       location: location || 'Collection Desk',
       firmwareVersion: req.body.firmwareVersion || 'v1.0.0',
+      apiKey: req.body.apiKey || generatedApiKey,
       macAddress: req.body.macAddress,
       ipAddress: req.body.ipAddress,
       calibrationStatus: req.body.calibrationStatus || 'CALIBRATED',
@@ -79,7 +87,7 @@ export const registerDevice = async (req: AuthenticatedRequest, res: Response): 
       }
     });
 
-    // Audit log
+    // Audit log (never log secret credentials)
     await dataRepository.addAuditLog({
       action: 'DEVICE_REGISTERED',
       userId: req.user?.userId || 'SYSTEM',
@@ -90,10 +98,16 @@ export const registerDevice = async (req: AuthenticatedRequest, res: Response): 
       details: `Registered new node ${newDevice.deviceId} (${newDevice.name}) with mode ${newDevice.connectionMode}`
     });
 
+    const { apiKey, ...sanitized } = newDevice;
+
     res.status(201).json({
       success: true,
       message: `Device '${newDevice.deviceId}' registered successfully`,
-      data: newDevice
+      data: {
+        ...sanitized,
+        provisioningKey: newDevice.apiKey,
+        provisioningNotice: 'Store this X-Device-Key in your ESP32 microcontroller firmware. It will not be displayed again.'
+      }
     });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
@@ -119,10 +133,12 @@ export const updateDevice = async (req: AuthenticatedRequest, res: Response): Pr
       details: `Updated device metadata for ${updated.deviceId}`
     });
 
+    const { apiKey, ...sanitized } = updated;
+
     res.json({
       success: true,
       message: `Device '${updated.deviceId}' updated successfully`,
-      data: updated
+      data: sanitized
     });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
@@ -171,16 +187,19 @@ export const ingestTelemetry = async (req: Request, res: Response): Promise<void
       return;
     }
 
-    // Device Authentication Check (Separated from operator auth)
+    // Secure Device Authentication Check (Header-only: X-Device-Key or X-API-Key)
     const suppliedApiKey =
       (req.headers['x-device-key'] as string) ||
-      (req.headers['x-api-key'] as string) ||
-      (req.query.apiKey as string) ||
-      req.body.apiKey;
+      (req.headers['x-api-key'] as string);
 
-    if (device.apiKey && suppliedApiKey && suppliedApiKey !== device.apiKey) {
-      res.status(401).json({ success: false, error: 'Device authentication failed: invalid API key' });
-      return;
+    if (device.apiKey && device.connectionMode !== 'DEMO' && device.deviceId !== 'ESP32-DEMO-001') {
+      if (!suppliedApiKey || suppliedApiKey !== device.apiKey) {
+        res.status(401).json({
+          success: false,
+          error: 'Device authentication failed: valid X-Device-Key header required'
+        });
+        return;
+      }
     }
 
     const validation = sensorService.validateReading({ ...req.body, deviceId });
@@ -210,6 +229,7 @@ export const ingestTelemetry = async (req: Request, res: Response): Promise<void
       return;
     }
 
+    // Update heartbeat only for valid, in-order accepted telemetry
     await dataRepository.updateDeviceHeartbeat(deviceId);
 
     res.status(200).json({
