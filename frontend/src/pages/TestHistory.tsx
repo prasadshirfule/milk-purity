@@ -206,7 +206,7 @@ export const TestHistory: React.FC = () => {
             accessor: (t) => <span className="font-bold font-mono text-slate-800">{t.quantity} L</span>
           },
           {
-            header: 'Fat %',
+            header: 'Est. Fat %',
             accessor: (t) => <span className="font-mono font-semibold">{t.fat}%</span>
           },
           {
@@ -214,21 +214,32 @@ export const TestHistory: React.FC = () => {
             accessor: (t) => <span className="font-mono font-semibold">{t.ph}</span>
           },
           {
-            header: 'Density',
-            accessor: (t) => <span className="font-mono text-slate-600">{t.density}</span>
-          },
-          {
-            header: 'EC (mS/cm)',
-            accessor: (t) => <span className="font-mono text-slate-600">{t.conductivity}</span>
-          },
-          {
             header: 'Purity Score',
             accessor: (t) => (
-              <span className="font-bold font-mono text-slate-900">{t.qualityScore}%</span>
+              <span className="font-bold font-mono text-slate-900">{t.purityScore || t.qualityScore}%</span>
             )
           },
           {
-            header: 'Result',
+            header: 'AI Recommendation',
+            accessor: (t) => {
+              const rec = t.aiRecommendation || (t.result === 'ACCEPTED' ? 'ACCEPT' : t.result === 'WARNING' ? 'REVIEW' : 'REJECT');
+              return (
+                <Badge variant={rec === 'ACCEPT' ? 'success' : rec === 'REVIEW' ? 'warning' : 'danger'} size="sm">
+                  {rec}
+                </Badge>
+              );
+            }
+          },
+          {
+            header: 'Operator Decision',
+            accessor: (t) => (
+              <span className="text-xs font-semibold text-slate-700">
+                {t.operatorDecision || (t.result === 'REJECTED' ? 'REJECT' : 'ACCEPT')}
+              </span>
+            )
+          },
+          {
+            header: 'Final Result',
             accessor: (t) => getResultBadge(t.result)
           },
           {
@@ -272,16 +283,52 @@ export const TestHistory: React.FC = () => {
           maxWidth="2xl"
         >
           <div className="space-y-5">
+            {/* Top Score Summary Banner */}
             <div className="p-4 rounded-2xl bg-slate-900 text-white flex items-center justify-between">
               <div>
-                <span className="text-[10px] uppercase font-bold text-slate-400 block">Quality Assessment</span>
-                <span className="text-2xl font-black">{selectedTest.classification} ({selectedTest.qualityScore}%)</span>
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">Milk Purity Assessment</span>
+                <span className="text-2xl font-black">{selectedTest.classification} ({selectedTest.purityScore || selectedTest.qualityScore}%)</span>
+                <span className="text-[10px] text-slate-400 block mt-0.5 font-mono">
+                  Model: {selectedTest.modelVersion || 'screening-baseline-v1'}
+                </span>
               </div>
               <div className="text-right">
-                <span className="text-[10px] uppercase font-bold text-slate-400 block">Result</span>
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">Final Result</span>
                 {getResultBadge(selectedTest.result)}
               </div>
             </div>
+
+            {/* AI/ML Audit & Decision Workflow Details */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">Purity Score</span>
+                <span className="font-mono font-bold text-slate-900">{selectedTest.purityScore || selectedTest.qualityScore}%</span>
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">AI Recommendation</span>
+                <Badge variant={(selectedTest.aiRecommendation || (selectedTest.result === 'ACCEPTED' ? 'ACCEPT' : selectedTest.result === 'WARNING' ? 'REVIEW' : 'REJECT')) === 'ACCEPT' ? 'success' : (selectedTest.aiRecommendation || 'REVIEW') === 'REVIEW' ? 'warning' : 'danger'} size="sm">
+                  {selectedTest.aiRecommendation || (selectedTest.result === 'ACCEPTED' ? 'ACCEPT' : selectedTest.result === 'WARNING' ? 'REVIEW' : 'REJECT')}
+                </Badge>
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">Operator Decision</span>
+                <span className="font-bold text-slate-800">{selectedTest.operatorDecision || (selectedTest.result === 'REJECTED' ? 'REJECT' : 'ACCEPT')}</span>
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">Model Version</span>
+                <span className="font-mono text-slate-600 text-[11px]">{selectedTest.modelVersion || 'screening-baseline-v1'}</span>
+              </div>
+            </div>
+
+            {/* Override Reason Audit Note if present */}
+            {selectedTest.overrideReason && (
+              <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs">
+                <strong className="block font-bold text-amber-950 uppercase text-[10px] tracking-wider mb-0.5">
+                  Operator Manual Override Logged:
+                </strong>
+                <p className="italic font-medium">"{selectedTest.overrideReason}"</p>
+              </div>
+            )}
 
             <div>
               <h4 className="text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">

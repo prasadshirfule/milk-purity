@@ -97,6 +97,43 @@ export const Analytics: React.FC = () => {
   const totalTests = filteredTests.length;
   const passRate = totalTests > 0 ? Number(((acceptedCount / totalTests) * 100).toFixed(1)) : 0;
 
+  // Purity Score Detailed Statistics
+  const purityStats = useMemo(() => {
+    if (filteredTests.length === 0) {
+      return {
+        avg: 0,
+        highest: 0,
+        lowest: 0,
+        acceptedPct: 0,
+        warningPct: 0,
+        rejectedPct: 0
+      };
+    }
+    const scores = filteredTests.map((t) => t.purityScore || t.qualityScore);
+    const sum = scores.reduce((a, b) => a + b, 0);
+    const avg = Number((sum / scores.length).toFixed(1));
+    const highest = Math.max(...scores);
+    const lowest = Math.min(...scores);
+    const acceptedPct = Number(((acceptedCount / totalTests) * 100).toFixed(1));
+    const warningPct = Number(((warningCount / totalTests) * 100).toFixed(1));
+    const rejectedPct = Number(((rejectedCount / totalTests) * 100).toFixed(1));
+
+    return { avg, highest, lowest, acceptedPct, warningPct, rejectedPct };
+  }, [filteredTests, acceptedCount, warningCount, rejectedCount, totalTests]);
+
+  // Chronological Milk Purity Score Trend
+  const purityScoreTrend = useMemo(() => {
+    return [...filteredTests]
+      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+      .map((t) => ({
+        label: new Date(t.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' + new Date(t.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        purity: t.purityScore || t.qualityScore,
+        fat: t.fat,
+        result: t.result,
+        farmer: t.farmerName
+      }));
+  }, [filteredTests]);
+
   // 1. Intake & Revenue Trend Data
   const volumeRevenueTrend = useMemo(() => {
     const map = new Map<string, { date: string; liters: number; amount: number; count: number }>();
@@ -136,7 +173,7 @@ export const Analytics: React.FC = () => {
           : `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
 
       const existing = map.get(key) || { date: key, avgScore: 0, avgFat: 0, totalScore: 0, totalFat: 0, count: 0 };
-      existing.totalScore += t.qualityScore;
+      existing.totalScore += (t.purityScore || t.qualityScore);
       existing.totalFat += t.fat;
       existing.count += 1;
       existing.avgScore = Number((existing.totalScore / existing.count).toFixed(1));
@@ -402,6 +439,117 @@ export const Analytics: React.FC = () => {
               )}
             </div>
           </ChartCard>
+        </div>
+      </div>
+
+      {/* AI / Milk Purity Score Deep Analytics Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <ChartCard
+            title="Milk Purity Score Chronological Trend (%)"
+            subtitle={`Individual batch purity scores in ${timeFilter.toUpperCase()} window (Model: screening-baseline-v1)`}
+          >
+            <div className="h-72 w-full">
+              {purityScoreTrend.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={purityScoreTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="purityGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.4} />
+                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                    <XAxis dataKey="label" stroke="#94a3b8" fontSize={11} tickLine={false} />
+                    <YAxis domain={[0, 100]} stroke="#94a3b8" fontSize={11} tickLine={false} />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: '#0f172a',
+                        borderRadius: '12px',
+                        border: 'none',
+                        color: '#fff',
+                        fontSize: '11px',
+                        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
+                      }}
+                      formatter={(val: any, name: string, item: any) => [
+                        `${val}% (Farmer: ${item.payload.farmer || 'Unassigned'})`,
+                        'Purity Score'
+                      ]}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="purity"
+                      name="purity"
+                      stroke="#3b82f6"
+                      strokeWidth={2.5}
+                      fillOpacity={1}
+                      fill="url(#purityGrad)"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center text-slate-400 text-xs font-semibold">
+                  No purity test data found in the selected period
+                </div>
+              )}
+            </div>
+          </ChartCard>
+        </div>
+
+        {/* Purity Performance Metrics Card */}
+        <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-sm flex flex-col justify-between space-y-4">
+          <div>
+            <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-dairy-600" />
+              Purity Screening Summary
+            </h3>
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              Multi-parameter screening metrics across {totalTests} tested samples
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 text-xs">
+            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/70">
+              <span className="text-[10px] uppercase font-bold text-slate-400 block">Avg Purity</span>
+              <span className="text-xl font-black text-slate-900 font-mono">{purityStats.avg}%</span>
+            </div>
+            <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200/70">
+              <span className="text-[10px] uppercase font-bold text-emerald-600 block">Highest Score</span>
+              <span className="text-xl font-black text-emerald-800 font-mono">{purityStats.highest}%</span>
+            </div>
+            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200/70">
+              <span className="text-[10px] uppercase font-bold text-rose-600 block">Lowest Score</span>
+              <span className="text-xl font-black text-rose-800 font-mono">{purityStats.lowest}%</span>
+            </div>
+            <div className="p-3 rounded-xl bg-dairy-50 border border-dairy-200/70">
+              <span className="text-[10px] uppercase font-bold text-dairy-600 block">Acceptance %</span>
+              <span className="text-xl font-black text-dairy-900 font-mono">{purityStats.acceptedPct}%</span>
+            </div>
+          </div>
+
+          <div className="space-y-2 pt-2 border-t border-slate-100 text-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-slate-600 flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                AI Accept (≥75%):
+              </span>
+              <span className="font-bold text-slate-900 font-mono">{purityStats.acceptedPct}% ({acceptedCount})</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-slate-600 flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-amber-500" />
+                AI Review/Warning (60–74%):
+              </span>
+              <span className="font-bold text-slate-900 font-mono">{purityStats.warningPct}% ({warningCount})</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-slate-600 flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-rose-500" />
+                AI Reject (&lt;60%):
+              </span>
+              <span className="font-bold text-slate-900 font-mono">{purityStats.rejectedPct}% ({rejectedCount})</span>
+            </div>
+          </div>
         </div>
       </div>
 

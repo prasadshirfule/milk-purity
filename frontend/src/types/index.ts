@@ -53,10 +53,16 @@ export interface ParameterAssessment {
   message?: string;
 }
 
+export type AIRecommendation = 'ACCEPT' | 'REVIEW' | 'REJECT';
+
 export interface QualityResult {
   score: number;
+  purityScore: number;
   classification: QualityClassification;
   result: TestResult;
+  aiRecommendation: AIRecommendation;
+  modelVersion: string;
+  scoreExplanation: string[];
   warnings: string[];
   recommendations: string[];
   parameters: {
@@ -85,10 +91,14 @@ export interface MilkTest {
   conductivity: number;
   milkLevel: number;
   qualityScore: number;
+  purityScore?: number;
   classification: QualityClassification;
   recommendedResult?: TestResult;
+  aiRecommendation?: AIRecommendation;
   operatorDecision?: 'ACCEPT' | 'REJECT';
   overrideReason?: string;
+  modelVersion?: string;
+  scoreExplanation?: string[];
   prediction?: string;
   confidence?: number | null;
   warnings: string[];

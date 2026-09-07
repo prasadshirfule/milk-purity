@@ -109,36 +109,77 @@ export class QualityService {
       warnings.push(`Intake temperature (${reading.temperature} °C) outside optimal chilling range (${thresholds.tempMin} – ${thresholds.tempMax} °C).`);
     }
 
-    // Calculate score
-    const rawScore = Math.max(10, Math.min(100, 100 - penalty));
+    // Score explanation observations
+    const scoreExplanation: string[] = [];
+    if (phAssessment.status === 'NORMAL') {
+      scoreExplanation.push(`✓ pH within configured reference range (${reading.ph})`);
+    } else {
+      scoreExplanation.push(`⚠ pH (${reading.ph}) outside configured range (${thresholds.phMin} – ${thresholds.phMax})`);
+    }
+
+    if (fatAssessment.status === 'NORMAL') {
+      scoreExplanation.push(`✓ Estimated Fat within configured reference range (${reading.fat}%)`);
+    } else {
+      scoreExplanation.push(`⚠ Estimated Fat (${reading.fat}%) below configured minimum (${thresholds.fatMin}%)`);
+    }
+
+    if (densityAssessment.status === 'NORMAL') {
+      scoreExplanation.push(`✓ Density within configured reference range (${reading.density} g/mL)`);
+    } else {
+      scoreExplanation.push(`⚠ Density deviation (${reading.density} g/mL) outside reference range (${thresholds.densityMin} – ${thresholds.densityMax} g/mL)`);
+    }
+
+    if (condAssessment.status === 'NORMAL') {
+      scoreExplanation.push(`✓ Electrical Conductivity within reference baseline (${reading.conductivity} mS/cm)`);
+    } else {
+      scoreExplanation.push(`⚠ Electrical Conductivity (${reading.conductivity} mS/cm) elevated above reference baseline`);
+    }
+
+    if (tempAssessment.status === 'NORMAL') {
+      scoreExplanation.push(`✓ Temperature within configured chilling range (${reading.temperature} °C)`);
+    } else {
+      scoreExplanation.push(`⚠ Intake temperature (${reading.temperature} °C) outside optimal chilling range (${thresholds.tempMin} – ${thresholds.tempMax} °C)`);
+    }
+
+    // Calculate score (0 to 100)
+    const rawScore = Math.max(0, Math.min(100, 100 - penalty));
     const score = Number(rawScore.toFixed(1));
 
-    // Classification
+    // Classification and AI Recommendation
     let classification: QualityClassification = 'REJECT';
     let result: TestResult = 'REJECTED';
+    let aiRecommendation: 'ACCEPT' | 'REVIEW' | 'REJECT' = 'REJECT';
 
     if (score >= thresholds.scoreExcellentMin) {
       classification = 'EXCELLENT';
       result = 'ACCEPTED';
-      recommendations.push('Parameters are within the configured reference ranges. Recommended for intake.');
+      aiRecommendation = 'ACCEPT';
+      recommendations.push('Parameters within configured reference ranges. Recommended for intake.');
     } else if (score >= thresholds.scoreGoodMin) {
       classification = 'GOOD';
       result = 'ACCEPTED';
+      aiRecommendation = 'ACCEPT';
       recommendations.push('Parameters within standard commercial reference tolerance. Recommended for processing.');
     } else if (score >= thresholds.scoreSuspiciousMin) {
       classification = 'SUSPICIOUS';
       result = 'WARNING';
+      aiRecommendation = 'REVIEW';
       recommendations.push('Quality parameters borderline. Secondary laboratory verification advised before bulk blending.');
     } else {
       classification = 'REJECT';
       result = 'REJECTED';
+      aiRecommendation = 'REJECT';
       recommendations.push('Batch flagged for parameter deviation. Fails configured quality thresholds.');
     }
 
     return {
       score,
+      purityScore: score,
       classification,
       result,
+      aiRecommendation,
+      modelVersion: 'screening-baseline-v1',
+      scoreExplanation,
       warnings,
       recommendations,
       parameters: {

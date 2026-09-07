@@ -5,6 +5,10 @@ export interface IMLResponse {
   prediction: string;
   confidence: number | null;
   score: number;
+  purityScore: number;
+  aiRecommendation: 'ACCEPT' | 'REVIEW' | 'REJECT';
+  modelVersion: string;
+  scoreExplanation: string[];
   warnings: string[];
   isMock: boolean;
   disclaimer: string;
@@ -30,10 +34,15 @@ export class MLService {
 
       if (response.ok) {
         const data = await response.json();
+        const score = data.purity_score ?? data.score ?? 92.0;
         return {
           prediction: data.prediction || 'DEMO_NORMAL',
           confidence: data.confidence ?? null,
-          score: data.score ?? 92.0,
+          score,
+          purityScore: score,
+          aiRecommendation: data.ai_recommendation || (score >= 75 ? 'ACCEPT' : score >= 60 ? 'REVIEW' : 'REJECT'),
+          modelVersion: data.model_version || 'screening-baseline-v1',
+          scoreExplanation: data.score_explanation || [],
           warnings: data.warnings || [],
           isMock: data.is_mock ?? true,
           disclaimer: 'Demo/engineering assessment only. Not a certified laboratory assay.'
@@ -43,13 +52,20 @@ export class MLService {
       // Python ML Service offline or unreachable -> use heuristic demonstration
     }
 
-    // Heuristic demonstration prediction
+    // Baseline screening assessment fallback
     const isAnomaly = reading.ph < 6.4 || reading.ph > 6.9 || reading.conductivity > 6.2 || reading.density < 1.026;
+    const score = isAnomaly ? 54.5 : 94.8;
     
     return {
       prediction: isAnomaly ? 'DEMO_ANOMALY' : 'DEMO_NORMAL',
       confidence: null, // neutral null for demo mode
-      score: isAnomaly ? 54.5 : 94.8,
+      score,
+      purityScore: score,
+      aiRecommendation: isAnomaly ? 'REJECT' : 'ACCEPT',
+      modelVersion: 'screening-baseline-v1',
+      scoreExplanation: isAnomaly
+        ? ['⚠ Parameter anomaly detected outside baseline bounds']
+        : ['✓ Parameters within standard baseline bounds'],
       warnings: isAnomaly ? ['Parameter anomaly detected. Requires secondary laboratory verification.'] : [],
       isMock: true,
       disclaimer: 'Demo/engineering assessment only. Not a certified laboratory assay.'

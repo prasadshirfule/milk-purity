@@ -141,7 +141,7 @@ export const FarmerDetails: React.FC = () => {
         />
 
         <StatCard
-          title="Avg Quality Score"
+          title="Average Milk Purity Score"
           value={`${farmer.averageQualityScore || 92}%`}
           subtitle="Cumulative testing score"
           icon={<ShieldCheck className="w-5 h-5" />}

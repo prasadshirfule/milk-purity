@@ -131,6 +131,20 @@ export const Dashboard: React.FC = () => {
     return Array.from(map.values());
   }, [collections, timeFilter]);
 
+  // Dynamic Milk Purity Trend computed from actual test results
+  const purityTrendData = useMemo(() => {
+    if (tests.length === 0) return [];
+    return tests
+      .slice(0, 12)
+      .reverse()
+      .map((t) => ({
+        label: new Date(t.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        purity: t.purityScore || t.qualityScore,
+        fat: t.fat,
+        result: t.result
+      }));
+  }, [tests]);
+
   // Quality distribution pie data
   const qualityDistribution = useMemo(() => {
     const excellent = tests.filter((t) => t.classification === 'EXCELLENT').length;
@@ -319,7 +333,7 @@ export const Dashboard: React.FC = () => {
         />
 
         <StatCard
-          title="Average Quality Score"
+          title="Average Milk Purity Score"
           value={`${summary.averagePurityScore}%`}
           subtitle={`${summary.totalTestsToday} tests performed today`}
           icon={<ShieldCheck className="w-5 h-5" />}
@@ -481,13 +495,52 @@ export const Dashboard: React.FC = () => {
         </ChartCard>
       </div>
 
+      {/* Dedicated Milk Purity Screening Trend Chart */}
+      <ChartCard
+        title="Milk Purity Score Screening Trend (%)"
+        subtitle="Chronological sequence of purity scores across recent milk intake tests (Model: screening-baseline-v1)"
+      >
+        <ResponsiveContainer width="100%" height={200}>
+          <AreaChart data={purityTrendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+            <defs>
+              <linearGradient id="colorPurity" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+            <XAxis dataKey="label" stroke="#94a3b8" fontSize={11} tickLine={false} />
+            <YAxis domain={[0, 100]} stroke="#94a3b8" fontSize={11} tickLine={false} />
+            <Tooltip
+              contentStyle={{
+                backgroundColor: '#0f172a',
+                borderRadius: '12px',
+                color: '#fff',
+                fontSize: '12px',
+                border: 'none'
+              }}
+              formatter={(val: any) => [`${val}%`, 'Purity Score']}
+            />
+            <Area
+              type="monotone"
+              dataKey="purity"
+              name="Purity Score (%)"
+              stroke="#3b82f6"
+              strokeWidth={2.5}
+              fillOpacity={1}
+              fill="url(#colorPurity)"
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      </ChartCard>
+
       {/* Two-Column Recent Data Tables */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         {/* Recent Milk Tests Table */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-extrabold text-slate-900">Recent Quality Tests</h3>
+              <h3 className="text-sm font-extrabold text-slate-900">Recent Quality & Purity Tests</h3>
               <p className="text-[11px] text-slate-500">Multi-parameter automated intake screenings</p>
             </div>
             <Button
@@ -527,8 +580,19 @@ export const Dashboard: React.FC = () => {
                 accessor: (t) => <span className="font-mono font-semibold text-xs">{t.fat}%</span>
               },
               {
-                header: 'Score',
-                accessor: (t) => <span className="font-mono font-bold text-slate-900 text-xs">{t.qualityScore}%</span>
+                header: 'Purity Score',
+                accessor: (t) => <span className="font-mono font-bold text-slate-900 text-xs">{t.purityScore || t.qualityScore}%</span>
+              },
+              {
+                header: 'Recommendation',
+                accessor: (t) => {
+                  const rec = t.aiRecommendation || (t.result === 'ACCEPTED' ? 'ACCEPT' : t.result === 'WARNING' ? 'REVIEW' : 'REJECT');
+                  return (
+                    <Badge variant={rec === 'ACCEPT' ? 'success' : rec === 'REVIEW' ? 'warning' : 'danger'} size="sm">
+                      {rec}
+                    </Badge>
+                  );
+                }
               },
               {
                 header: 'Result',

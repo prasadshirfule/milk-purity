@@ -348,9 +348,22 @@ export const MilkTesting: React.FC = () => {
       {/* Operator Action Decision Bar */}
       <div className="sticky bottom-4 z-20 p-4 rounded-3xl bg-slate-900/95 backdrop-blur-md text-white shadow-2xl border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
         <div>
-          <span className="text-xs text-slate-400 block font-medium">Ready for Intake Confirmation</span>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+              AI Recommendation:
+            </span>
+            <span className={`px-2 py-0.5 text-[10px] font-black uppercase tracking-wider rounded-md ${
+              qualityPreview.result === 'ACCEPTED'
+                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                : qualityPreview.result === 'WARNING'
+                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+            }`}>
+              {qualityPreview.result === 'ACCEPTED' ? '✅ ACCEPT MILK' : qualityPreview.result === 'WARNING' ? '⚠️ REVIEW MILK' : '❌ REJECT MILK'} ({qualityPreview.purityScore || qualityPreview.score}% Purity Score)
+            </span>
+          </div>
           <span className="text-sm font-bold text-white">
-            Farmer: {selectedFarmer?.name || 'Unassigned'} • Batch Volume: {quantity} Litres • Status: {qualityPreview.result}
+            Delivering: {selectedFarmer?.name || 'Unassigned'} • Volume: {quantity} L
           </span>
         </div>
 
@@ -362,7 +375,7 @@ export const MilkTesting: React.FC = () => {
             className="flex-1 sm:flex-initial font-bold"
             icon={<XCircle className="w-5 h-5" />}
           >
-            Reject Milk Batch
+            REJECT MILK
           </Button>
 
           <Button
@@ -372,7 +385,7 @@ export const MilkTesting: React.FC = () => {
             className="flex-1 sm:flex-initial font-bold shadow-lg shadow-emerald-600/30"
             icon={<CheckCircle2 className="w-5 h-5" />}
           >
-            Accept Milk ({quantity} L)
+            ACCEPT MILK ({quantity} L)
           </Button>
         </div>
       </div>

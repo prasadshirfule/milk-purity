@@ -251,7 +251,54 @@ export const Settings: React.FC = () => {
           </div>
         </Card>
 
-        {/* Section 3: Pricing & Settlement Parameters */}
+        {/* Section 3: AI & Quality Screening Thresholds */}
+        <Card className="space-y-4">
+          <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100">
+            <SettingsIcon className="w-5 h-5 text-indigo-600" />
+            <div>
+              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800">
+                AI / Quality Screening Thresholds
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Automated screening score boundaries for Accept, Review, and Reject recommendations
+              </p>
+            </div>
+          </div>
+
+          {/* Screening disclaimer notice */}
+          <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs">
+            <span className="font-bold block mb-0.5">Application Screening Policy Notice:</span>
+            <span>These are configured application screening thresholds and are not universal laboratory standards.</span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="p-3.5 rounded-2xl bg-emerald-50/60 border border-emerald-200/70 space-y-1">
+              <span className="text-xs font-bold text-emerald-900 uppercase block">Optimal / Accept (≥90%)</span>
+              <span className="text-sm font-black text-emerald-700">EXCELLENT</span>
+              <p className="text-[11px] text-emerald-800/80">Recommendation: ACCEPT MILK</p>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-teal-50/60 border border-teal-200/70 space-y-1">
+              <span className="text-xs font-bold text-teal-900 uppercase block">Standard / Accept (≥75%)</span>
+              <span className="text-sm font-black text-teal-700">GOOD</span>
+              <p className="text-[11px] text-teal-800/80">Recommendation: ACCEPT MILK</p>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-amber-50/60 border border-amber-200/70 space-y-1">
+              <span className="text-xs font-bold text-amber-900 uppercase block">Warning / Review (60–74%)</span>
+              <span className="text-sm font-black text-amber-700">WARNING</span>
+              <p className="text-[11px] text-amber-800/80">Recommendation: REVIEW MILK</p>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-rose-50/60 border border-rose-200/70 space-y-1">
+              <span className="text-xs font-bold text-rose-900 uppercase block">Rejection Cutoff (&lt;60%)</span>
+              <span className="text-sm font-black text-rose-700">POOR</span>
+              <p className="text-[11px] text-rose-800/80">Recommendation: REJECT MILK</p>
+            </div>
+          </div>
+        </Card>
+
+        {/* Section 4: Pricing & Settlement Parameters */}
         <Card className="space-y-4">
           <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100">
             <Coins className="w-5 h-5 text-emerald-600" />

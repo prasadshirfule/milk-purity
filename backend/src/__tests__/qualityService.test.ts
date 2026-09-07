@@ -321,3 +321,79 @@ describe('Workflow & Decision Logic Rules', () => {
     assert.ok(res.error?.includes('decision'));
   });
 });
+
+describe('AI/ML Milk Purity Scoring & Recommendations', () => {
+  it('1. High-quality parameters -> 100% purity score -> ACCEPT recommendation', () => {
+    const reading: ISensorReading = {
+      deviceId: 'ESP32-MILK-001',
+      timestamp: new Date().toISOString(),
+      temperature: 24.0,
+      ph: 6.65,
+      fat: 4.5,
+      density: 1.029,
+      conductivity: 5.0,
+      milkLevel: 25.0
+    };
+
+    const res = QualityService.calculateQuality(reading, DEFAULT_THRESHOLDS);
+    assert.strictEqual(res.purityScore, 100);
+    assert.strictEqual(res.aiRecommendation, 'ACCEPT');
+    assert.strictEqual(res.classification, 'EXCELLENT');
+    assert.strictEqual(res.modelVersion, 'screening-baseline-v1');
+    assert.ok(res.scoreExplanation.every((obs: string) => obs.startsWith('✓')));
+  });
+
+  it('2. Moderate anomalies -> 60-74% score -> REVIEW recommendation', () => {
+    const reading: ISensorReading = {
+      deviceId: 'ESP32-MILK-001',
+      timestamp: new Date().toISOString(),
+      temperature: 24.0,
+      ph: 6.45, // slightly low (penalty 15)
+      fat: 4.2,  // normal fat
+      density: 1.024, // slight deviation (penalty 18)
+      conductivity: 5.0,
+      milkLevel: 25.0
+    };
+
+    const res = QualityService.calculateQuality(reading, DEFAULT_THRESHOLDS);
+    assert.ok(res.purityScore >= 60 && res.purityScore <= 74);
+    assert.strictEqual(res.aiRecommendation, 'REVIEW');
+    assert.strictEqual(res.classification, 'SUSPICIOUS');
+    assert.ok(res.scoreExplanation.some((obs: string) => obs.startsWith('⚠')));
+  });
+
+  it('3. Severe anomalies -> <60% score -> REJECT recommendation', () => {
+    const reading: ISensorReading = {
+      deviceId: 'ESP32-MILK-001',
+      timestamp: new Date().toISOString(),
+      temperature: 24.0,
+      ph: 5.2, // severe souring
+      fat: 2.5, // severe low fat
+      density: 1.018, // severe dilution
+      conductivity: 7.8, // severe conductivity
+      milkLevel: 25.0
+    };
+
+    const res = QualityService.calculateQuality(reading, DEFAULT_THRESHOLDS);
+    assert.ok(res.purityScore < 60);
+    assert.strictEqual(res.aiRecommendation, 'REJECT');
+    assert.strictEqual(res.classification, 'REJECT');
+  });
+
+  it('4. Score cannot be below 0 or exceed 100', () => {
+    const extremeBadReading: ISensorReading = {
+      deviceId: 'ESP32-MILK-001',
+      timestamp: new Date().toISOString(),
+      temperature: 50.0,
+      ph: 2.0,
+      fat: 0.1,
+      density: 0.8,
+      conductivity: 20.0,
+      milkLevel: 10.0
+    };
+
+    const res = QualityService.calculateQuality(extremeBadReading, DEFAULT_THRESHOLDS);
+    assert.ok(res.purityScore >= 0);
+    assert.ok(res.purityScore <= 100);
+  });
+});
