@@ -57,10 +57,10 @@ export const Alerts: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">
-            System Alerts & Adulteration Audit Log
+            System Alerts & Quality Screening Audit Log
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Real-time notifications for anomalous sensor thresholds, device disconnections, and suspicious batches
+            Real-time notifications for anomalous sensor thresholds, device disconnections, and flagged batches
           </p>
         </div>
       </div>

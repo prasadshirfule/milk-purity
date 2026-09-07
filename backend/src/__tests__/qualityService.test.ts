@@ -421,5 +421,43 @@ describe('AI/ML Milk Purity Scoring & Recommendations', () => {
     assert.strictEqual(mlEval.modelVersion, 'screening-baseline-v1');
     assert.strictEqual(mlEval.confidence, null);
   });
+
+  it('6. Parameter sensitivity: score responds appropriately to isolated deviations', () => {
+    const baselineReading: ISensorReading = {
+      deviceId: 'ESP32-MILK-001',
+      timestamp: new Date().toISOString(),
+      temperature: 24.0,
+      ph: 6.65,
+      fat: 4.5,
+      density: 1.029,
+      conductivity: 5.0,
+      milkLevel: 25.0
+    };
+    const baseScore = QualityService.calculateQuality(baselineReading, DEFAULT_THRESHOLDS).purityScore;
+    assert.strictEqual(baseScore, 100);
+
+    // Only pH deviation
+    const phDeviation = { ...baselineReading, ph: 6.45 };
+    const phScore = QualityService.calculateQuality(phDeviation, DEFAULT_THRESHOLDS).purityScore;
+    assert.strictEqual(phScore, 85); // -15 penalty
+
+    // Only Density deviation
+    const densityDeviation = { ...baselineReading, density: 1.024 };
+    const densityScore = QualityService.calculateQuality(densityDeviation, DEFAULT_THRESHOLDS).purityScore;
+    assert.strictEqual(densityScore, 82); // -18 penalty
+
+    // Only Conductivity deviation (outside 4.0 - 6.0 mS/cm)
+    const condDeviation = { ...baselineReading, conductivity: 6.5 };
+    const condScore = QualityService.calculateQuality(condDeviation, DEFAULT_THRESHOLDS).purityScore;
+    assert.strictEqual(condScore, 88); // -12 penalty
+
+    // Multi-parameter combined deviation (pH -15, Density -18, Cond -12 = -45 => 55)
+    const combinedDeviation = { ...baselineReading, ph: 6.45, density: 1.024, conductivity: 6.5 };
+    const combinedScore = QualityService.calculateQuality(combinedDeviation, DEFAULT_THRESHOLDS).purityScore;
+    assert.strictEqual(combinedScore, 55);
+    assert.strictEqual(QualityService.calculateQuality(combinedDeviation, DEFAULT_THRESHOLDS).aiRecommendation, 'REJECT');
+  });
 });
+
+
 

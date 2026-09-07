@@ -332,8 +332,8 @@ export const createTest = async (req: Request, res: Response): Promise<void> => 
 
       const warningText = savedTest.warnings.length > 0 ? ` (${savedTest.warnings.join('; ')})` : '';
       const alertMsg = savedTest.result === 'REJECTED'
-        ? `Parameter anomaly detected exceeding rejection thresholds for batch ${savedTest.testId}${warningText}. Secondary laboratory verification advised.`
-        : `Parameter variance detected outside reference ranges for batch ${savedTest.testId}${warningText}. Monitored intake recorded.`;
+        ? `Milk quality screening score (${savedTest.purityScore}%) below configured rejection threshold for batch ${savedTest.testId} (Farmer: ${savedTest.farmerName}). AI Recommendation: REJECT.${warningText} Secondary laboratory verification advised.`
+        : `Milk quality screening score (${savedTest.purityScore}%) in review range for batch ${savedTest.testId} (Farmer: ${savedTest.farmerName}). AI Recommendation: REVIEW.${warningText} Monitored intake recorded.`;
 
       const alert: IAlert = {
         alertId: `ALT-${uniqueToken}`,

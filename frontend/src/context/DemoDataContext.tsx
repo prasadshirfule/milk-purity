@@ -521,7 +521,9 @@ export const DemoDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           farmerName: actualFarmerName,
           testId: newTest.testId,
           deviceId: newTest.deviceId,
-          message: `Batch ${newTest.testId} outcome: ${newTest.result} (Operator: ${decision}). Score ${newTest.qualityScore}%. ${newTest.warnings.join(', ')}`,
+          message: newTest.result === 'REJECTED'
+            ? `Milk quality screening score (${newTest.purityScore}%) below configured rejection threshold for batch ${newTest.testId} (Farmer: ${actualFarmerName}). AI Recommendation: REJECT.${newTest.warnings.length > 0 ? ` (${newTest.warnings.join('; ')})` : ''} Secondary laboratory verification advised.`
+            : `Milk quality screening score (${newTest.purityScore}%) in review range for batch ${newTest.testId} (Farmer: ${actualFarmerName}). AI Recommendation: REVIEW.${newTest.warnings.length > 0 ? ` (${newTest.warnings.join('; ')})` : ''} Monitored intake recorded.`,
           status: 'ACTIVE',
           timestamp: new Date().toISOString()
         };

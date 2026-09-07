@@ -112,17 +112,17 @@ export const Reports: React.FC = () => {
       headers = 'Date,Intake Volume (L),Total Payout (INR),Avg Fat (%),Pass Rate (%)';
       rows = dailyData.map((d) => `"${d.date}",${d.volume},${d.payout},${d.avgFat},${d.passRate}`);
     } else if (activeTab === 'monthly') {
-      headers = 'Month,Total Volume (L),Total Payout (INR),Avg Fat (%),Avg Quality Score (%)';
+      headers = 'Month,Total Volume (L),Total Payout (INR),Avg Fat (%),Avg Purity Score (%)';
       rows = monthlyData.map((m) => `"${m.month}",${m.volume},${m.payout},${m.avgFat},${m.avgScore}`);
     } else if (activeTab === 'farmer') {
-      headers = 'Farmer ID,Farmer Name,Village,Animal Type,Total Litres,Tests Count,Pass Rate (%),Avg Quality Score (%)';
+      headers = 'Farmer ID,Farmer Name,Village,Animal Type,Total Litres,Tests Count,Pass Rate (%),Avg Purity Score (%)';
       rows = farmerData.map((f) => `"${f.farmerId}","${f.name}","${f.village}","${f.animalType}",${f.totalLiters},${f.testsCount},${f.passRate},${f.avgScore}`);
     } else if (activeTab === 'sensor') {
       headers = 'Device ID,Name,Status,Location,Firmware,Tests Conducted,Probe Health';
       rows = sensorAudit.map((s) => `"${s.deviceId}","${s.name}","${s.status}","${s.location}","${s.firmware}",${s.testsConducted},"${s.sensorHealth}"`);
     } else {
-      headers = 'Test ID,Farmer ID,Farmer Name,Volume (L),Fat (%),pH,Score (%),Result,Warnings';
-      rows = rejections.map((r) => `"${r.testId}","${r.farmerId}","${r.farmerName}",${r.quantity},${r.fat},${r.ph},${r.qualityScore},"${r.result}","${r.warnings.join(' | ')}"`);
+      headers = 'Test ID,Farmer ID,Farmer Name,Volume (L),Fat (%),pH,Purity Score (%),Classification,AI Recommendation,Operator Decision,Final Result,Warnings';
+      rows = rejections.map((r) => `"${r.testId}","${r.farmerId}","${r.farmerName}",${r.quantity},${r.fat},${r.ph},${r.purityScore || r.qualityScore},"${r.classification || 'POOR'}","${r.aiRecommendation || (r.result === 'ACCEPTED' ? 'ACCEPT' : r.result === 'WARNING' ? 'REVIEW' : 'REJECT')}","${r.operatorDecision || (r.result === 'REJECTED' ? 'REJECT' : 'ACCEPT')}","${r.result}","${r.warnings.join(' | ')}"`);
     }
 
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers, ...rows].join('\n');
@@ -447,11 +447,22 @@ export const Reports: React.FC = () => {
                 accessor: (r) => <span className="font-mono font-bold">{r.quantity} L</span>
               },
               {
-                header: 'Score',
-                accessor: (r) => <span className="font-mono font-bold text-rose-600">{r.qualityScore}%</span>
+                header: 'Purity Score',
+                accessor: (r) => <span className="font-mono font-bold text-slate-900">{r.purityScore || r.qualityScore}%</span>
               },
               {
-                header: 'Outcome',
+                header: 'AI Recommendation',
+                accessor: (r) => {
+                  const rec = r.aiRecommendation || (r.result === 'ACCEPTED' ? 'ACCEPT' : r.result === 'WARNING' ? 'REVIEW' : 'REJECT');
+                  return (
+                    <Badge variant={rec === 'ACCEPT' ? 'success' : rec === 'REVIEW' ? 'warning' : 'danger'} size="sm">
+                      {rec}
+                    </Badge>
+                  );
+                }
+              },
+              {
+                header: 'Final Result',
                 accessor: (r) => (
                   <Badge variant={r.result === 'REJECTED' ? 'danger' : 'warning'} size="sm">
                     {r.result}
