@@ -6,7 +6,7 @@ import { ChartCard } from '../components/common/ChartCard';
 import { DataTable } from '../components/common/DataTable';
 import { Badge } from '../components/common/Badge';
 import { Button } from '../components/common/Button';
-import { MilkTest } from '../types';
+import { MilkTest, MilkCollection } from '../types';
 import {
   ArrowLeft,
   Milk,
@@ -51,12 +51,20 @@ export const FarmerDetails: React.FC = () => {
   const farmerTests = tests.filter((t) => t.farmerId === farmer.farmerId);
   const farmerCollections = collections.filter((c) => c.farmerId === farmer.farmerId);
 
-  const acceptedTests = farmerTests.filter((t) => t.result !== 'REJECTED');
+  const acceptedTests = farmerTests.filter((t) => t.result === 'ACCEPTED');
+  const warningTests = farmerTests.filter((t) => t.result === 'WARNING');
   const rejectedTests = farmerTests.filter((t) => t.result === 'REJECTED');
 
-  const totalAcceptedVolume = acceptedTests.reduce((sum, t) => sum + t.quantity, 0);
+  const totalAcceptedVolume = farmerTests
+    .filter((t) => t.result !== 'REJECTED')
+    .reduce((sum, t) => sum + t.quantity, 0);
   const totalRejectedVolume = rejectedTests.reduce((sum, t) => sum + t.quantity, 0);
   const totalPayout = farmerCollections.reduce((sum, c) => sum + c.totalAmount, 0);
+
+  const avgEstimatedFat =
+    farmerTests.length > 0
+      ? Number((farmerTests.reduce((sum, t) => sum + t.fat, 0) / farmerTests.length).toFixed(2))
+      : 4.5;
 
   // Timeline chart data
   const chartData = farmerTests.slice(0, 10).reverse().map((t, idx) => ({
@@ -101,22 +109,33 @@ export const FarmerDetails: React.FC = () => {
           </div>
         </div>
 
-        <Button
-          variant="primary"
-          size="sm"
-          onClick={() => navigate('/milk-testing')}
-          icon={<Milk className="w-4 h-4" />}
-        >
-          New Test for this Farmer
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate('/ledger')}
+            icon={<Coins className="w-4 h-4" />}
+          >
+            Farmer Ledger
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => navigate('/milk-testing')}
+            icon={<Milk className="w-4 h-4" />}
+          >
+            New Test for this Farmer
+          </Button>
+        </div>
       </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Total Lifetime Milk"
-          value={farmer.totalMilkSupplied?.toLocaleString() || totalAcceptedVolume.toLocaleString()}
+          value={farmer.totalMilkSupplied ? farmer.totalMilkSupplied.toLocaleString() : totalAcceptedVolume.toLocaleString()}
           unit="L"
+          subtitle={`${farmerCollections.length} batches delivered`}
           icon={<Milk className="w-5 h-5" />}
           iconBg="bg-dairy-50 text-dairy-600"
         />
@@ -130,19 +149,40 @@ export const FarmerDetails: React.FC = () => {
         />
 
         <StatCard
-          title="Total Earnings Payout"
-          value={`₹${totalPayout.toLocaleString()}`}
+          title="Avg Estimated Fat %"
+          value={`${avgEstimatedFat}%`}
+          subtitle="Estimated screening fat"
           icon={<Coins className="w-5 h-5" />}
           iconBg="bg-amber-50 text-amber-600"
         />
 
         <StatCard
-          title="Intake Acceptance Rate"
-          value={`${((acceptedTests.length / (farmerTests.length || 1)) * 100).toFixed(0)}%`}
-          subtitle={`${acceptedTests.length} Accepted • ${rejectedTests.length} Rejected`}
+          title="Total Earnings Due"
+          value={`₹${totalPayout.toLocaleString()}`}
+          subtitle={`${((acceptedTests.length / (farmerTests.length || 1)) * 100).toFixed(0)}% Acceptance rate`}
           icon={<FileText className="w-5 h-5" />}
           iconBg="bg-indigo-50 text-indigo-600"
         />
+      </div>
+
+      {/* Test Status Distribution Banner */}
+      <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-sm flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <span className="text-xs font-bold text-slate-700 block">Total Tests Recorded: {farmerTests.length}</span>
+          <span className="text-[11px] text-slate-400">Lifetime delivery tests logged for {farmer.name}</span>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 text-xs">
+          <Badge variant="success" size="sm">
+            {acceptedTests.length} Accepted ({totalAcceptedVolume} L)
+          </Badge>
+          <Badge variant="warning" size="sm">
+            {warningTests.length} Warning
+          </Badge>
+          <Badge variant="danger" size="sm">
+            {rejectedTests.length} Rejected ({totalRejectedVolume} L)
+          </Badge>
+        </div>
       </div>
 
       {/* Charts: Volume & Purity History */}
@@ -239,7 +279,7 @@ export const FarmerDetails: React.FC = () => {
               accessor: (t) => <span className="font-mono font-bold text-slate-900">{t.quantity} L</span>
             },
             {
-              header: 'Fat %',
+              header: 'Est. Fat %',
               accessor: (t) => <span className="font-mono font-semibold">{t.fat}%</span>
             },
             {
@@ -276,6 +316,55 @@ export const FarmerDetails: React.FC = () => {
           ]}
         />
       </div>
+
+      {/* Historical Collections for Farmer */}
+      <div className="space-y-3 pt-4">
+        <h3 className="text-base font-bold text-slate-900">Procurement Collections & Ledger Entries</h3>
+        <DataTable<MilkCollection>
+          data={farmerCollections}
+          keyExtractor={(c) => c.collectionId}
+          columns={[
+            {
+              header: 'Collection ID',
+              accessor: (c) => <span className="font-mono font-bold text-dairy-700">{c.collectionId}</span>
+            },
+            {
+              header: 'Date',
+              accessor: (c) => (
+                <span className="text-slate-500">
+                  {new Date(c.timestamp).toLocaleDateString()}
+                </span>
+              )
+            },
+            {
+              header: 'Volume',
+              accessor: (c) => <span className="font-mono font-bold">{c.quantity} L</span>
+            },
+            {
+              header: 'Est. Fat',
+              accessor: (c) => <Badge variant="primary" size="sm">{c.fat}%</Badge>
+            },
+            {
+              header: 'Rate (₹/L)',
+              accessor: (c) => <span className="font-mono text-xs">₹{c.rate.toFixed(2)}</span>
+            },
+            {
+              header: 'Total Payable',
+              accessor: (c) => <span className="font-mono font-bold text-emerald-600">₹{c.totalAmount.toFixed(2)}</span>
+            },
+            {
+              header: 'Payment Status',
+              accessor: (c) => (
+                <Badge variant={(c.paymentStatus || 'PAID') === 'PAID' ? 'success' : 'warning'} size="sm">
+                  {c.paymentStatus || 'PAID'}
+                </Badge>
+              )
+            }
+          ]}
+        />
+      </div>
     </div>
   );
 };
+
+export default FarmerDetails;

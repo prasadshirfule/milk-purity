@@ -4,8 +4,10 @@ import {
   LayoutDashboard,
   FlaskConical,
   Coins,
+  Receipt,
   Users,
   History,
+  TrendingUp,
   BarChart3,
   Cpu,
   AlertTriangle,
@@ -23,14 +25,16 @@ export interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
-  const { summary } = useDemoData();
+  const { summary, isDemoMode } = useDemoData();
 
   const navItems = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-    { name: 'Milk Testing', path: '/milk-testing', icon: FlaskConical, badge: 'Live' },
+    { name: 'Milk Testing', path: '/milk-testing', icon: FlaskConical, badge: 'Station' },
     { name: 'Milk Collection', path: '/collection', icon: Coins },
+    { name: 'Payments & Ledger', path: '/ledger', icon: Receipt },
     { name: 'Farmers', path: '/farmers', icon: Users },
     { name: 'Test History', path: '/history', icon: History },
+    { name: 'Analytics', path: '/analytics', icon: TrendingUp },
     { name: 'Reports', path: '/reports', icon: BarChart3 },
     { name: 'IoT Devices', path: '/devices', icon: Cpu },
     {
@@ -40,7 +44,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       count: summary.activeAlertsCount > 0 ? summary.activeAlertsCount : undefined
     },
     { name: 'Settings', path: '/settings', icon: Settings },
-    { name: 'About System', path: '/about', icon: Info }
+    { name: 'How It Works', path: '/about', icon: Info }
   ];
 
   return (
@@ -127,7 +131,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
             <div className="flex items-center justify-between mb-2">
               <span className="text-[11px] font-bold text-slate-300 flex items-center gap-1.5">
                 <Radio className="w-3.5 h-3.5 text-dairy-400" />
-                IoT Receiver
+                Telemetry Channel
               </span>
               <span className="flex h-2 w-2 relative">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
@@ -136,12 +140,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
             </div>
             <div className="text-[10px] text-slate-400 space-y-0.5">
               <div className="flex justify-between">
-                <span>Active Node:</span>
-                <span className="text-slate-200 font-mono font-medium">ESP32-001</span>
+                <span>Receiver Mode:</span>
+                <span className="text-slate-200 font-medium">
+                  {isDemoMode ? 'Simulated Station' : 'Backend REST API'}
+                </span>
               </div>
               <div className="flex justify-between">
-                <span>Sampling:</span>
-                <span className="text-slate-200">1.2s Interval</span>
+                <span>Hardware Link:</span>
+                <span className="text-amber-400/90 font-medium">ESP32 Ready</span>
               </div>
             </div>
           </div>

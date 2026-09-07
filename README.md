@@ -30,34 +30,57 @@
 
 ---
 
-## 🌟 Key Features
+## 🌟 Key Functional Modules & Architecture
 
-1. **🥛 Multi-Sensor IoT Telemetry & Simulation**:
-   - Continuous real-time ingestion of 6 parameters: Temperature (°C), pH, Fat (%), Density (g/mL), Electrical Conductivity (mS/cm), and Volume (L).
-   - High-fidelity simulation mode with Brownian jitter and 5 distinct presets (Pure Cow, High-Fat Buffalo, Dilution Anomaly, Sour Milk, High Conductivity).
-   - Direct HTTP POST and MQTT streaming endpoints for physical ESP32 nodes.
+1. **📊 Main Operational Dashboard (`/dashboard`)**:
+   - 8 live KPI summary cards: Total Farmers, Today's Intake (L), Accepted Milk (L), Rejected Milk (L), Revenue (₹), Average Estimated Fat %, Quality Score, and Active Alerts.
+   - Quality screening distribution overview (`ACCEPTED`, `WARNING`, `REJECTED`).
+   - Dynamic intake volume area chart computed directly from recorded collection logs.
+   - Dual-column operational tables for Recent Quality Tests & Recent Collection ledger entries with detailed modal inspect.
 
-2. **🧪 Configurable Quality & Anomaly Engine**:
-   - Multi-parameter compliance engine evaluating against customizable dairy reference ranges.
-   - Quality classifications: `EXCELLENT`, `GOOD`, `SUSPICIOUS`, `REJECT`.
-   - Clear flags for parameter deviations with advisory notes recommending secondary laboratory verification.
+2. **👨‍🌾 Farmers Registry & Supplier Profiles (`/farmers`, `/farmers/:id`)**:
+   - Complete supplier registry with search, animal type filter, and instant registration modal.
+   - Comprehensive Farmer Details page showing contact details, lifetime milk volume delivered, lifetime procurement payout in ₹, tests breakdown, complete delivery test history, and procurement ledger statement.
 
-3. **💰 Transparent Farmer Ledger & Indian Rupee (₹) Pricing**:
-   - Automated rate computation based on base rate + fat-tier premium bonus:
-     $$\text{Rate (₹/L)} = (\text{BaseRate} + (\text{Fat} - \text{FatMin}) \times \text{PremiumFactor}) \times \text{QualityFactor}$$
-   - Immutable collection logs and automated payment status tracking.
+3. **🥛 Milk Testing Station (`/milk-testing`)**:
+   - Multi-parameter live testing station supporting Temperature (°C), Estimated Fat (%), pH, Density (g/mL), Electrical Conductivity (mS/cm), and Volume (L).
+   - Real-time parameter anomaly evaluation with reference range deviation indicators.
+   - Configurable operator decision workflow (`ACCEPT` / `REJECT` / `MANUAL OVERRIDE`) with mandatory audit reason capture.
 
-4. **👨‍🌾 Farmer Registry & Herd Profiles**:
-   - Detailed supplier profiles (Cow, Buffalo, Mixed), village geolocation, lifetime supply metrics, and average quality scores.
+4. **📜 Test History & Audit Trail (`/history`)**:
+   - Comprehensive test history with multi-filter search (date range, farmer, result status).
+   - Parameter drilldown modal and one-click CSV export for compliance reporting.
 
-5. **📊 Advanced Analytics & Audit Reports**:
-   - Daily intake volume trends, rejection audits, parameter correlation charts, and printable/CSV report export.
+5. **📦 Milk Collections (`/collection`)**:
+   - Centralized dairy procurement ledger linking accepted tests to collection records.
+   - Prevents duplicate collection records and calculates accurate rate/payouts in ₹.
 
-6. **📡 IoT Device Health & Probes Monitoring**:
-   - Multi-bay ESP32 hardware status monitoring, probe electrode health tracking, heartbeat monitoring, and automated alerts.
+6. **💳 Payments & Farmer Ledger (`/ledger`)**:
+   - Transparent supplier accounts showing Opening Balance, Milk Amount, Payouts, and Balance.
+   - Individual farmer ledger statements, payment status tracking (`PAID`, `PENDING`), and CSV export.
+   - Clearly labeled as internal procurement accounting (no fake bank gateway claims).
 
-7. **⚡ Zero-Hardware Demo Mode**:
-   - Fully standalone operation with in-memory persistence and mock seeds. Zero external dependencies required to test all features.
+7. **📈 Dedicated Analytics Engine (`/analytics`)**:
+   - Time-horizon filtering (Today, 7 Days, 30 Days, All-Time).
+   - Intake Volume & Procurement Cost trends, Average Quality Score & Estimated Fat % trends.
+   - Quality classification breakdown pie charts, top contributing farmers bar chart, and sensor benchmark compliance metrics.
+
+8. **📡 IoT Devices & Sensor Telemetry (`/devices`, `/devices/:id`)**:
+   - Real-time probe and dock status for ESP32 testing stations.
+   - Clearly labeled simulated node telemetry with REST schema documentation (`POST /api/sensors/readings`).
+   - Architecture ready for physical hardware deployment.
+
+9. **📑 Comprehensive Reports (`/reports`)**:
+   - Tabulated daily, monthly, farmer-wise, sensor audit, and quality rejection reports.
+   - Instant CSV export and print-ready summary tables.
+
+10. **⚙️ Quality & Pricing Settings (`/settings`)**:
+    - Configurable reference ranges for all 5 physical parameters.
+    - Transparent pricing tier rules (base rate, fat premium multiplier, penalty deductions).
+    - System mode toggle between Demo Mode and Connected Mode.
+
+11. **ℹ️ System Specifications & Architecture (`/about`)**:
+    - In-depth technical documentation covering sensor methodology, scoring formulas, scientific limitations, and roadmap.
 
 ---
 

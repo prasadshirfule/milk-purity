@@ -13,6 +13,8 @@ import { MilkCollection } from './pages/MilkCollection';
 import { Farmers } from './pages/Farmers';
 import { FarmerDetails } from './pages/FarmerDetails';
 import { TestHistory } from './pages/TestHistory';
+import { Ledger } from './pages/Ledger';
+import { Analytics } from './pages/Analytics';
 import { Reports } from './pages/Reports';
 import { Devices } from './pages/Devices';
 import { DeviceDetails } from './pages/DeviceDetails';
@@ -54,6 +56,8 @@ export const App: React.FC = () => {
                   <Route path="/farmers" element={<Farmers />} />
                   <Route path="/farmers/:id" element={<FarmerDetails />} />
                   <Route path="/history" element={<TestHistory />} />
+                  <Route path="/ledger" element={<Ledger />} />
+                  <Route path="/analytics" element={<Analytics />} />
                   <Route path="/reports" element={<Reports />} />
                   <Route path="/devices" element={<Devices />} />
                   <Route path="/devices/:id" element={<DeviceDetails />} />

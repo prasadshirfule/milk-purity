@@ -46,6 +46,14 @@ export const Devices: React.FC = () => {
         </div>
       </div>
 
+      {/* Simulation / Hardware Readiness Notice */}
+      <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-start gap-3">
+        <div className="w-2 h-2 rounded-full bg-amber-500 mt-2 shrink-0 animate-pulse" />
+        <div className="text-xs text-amber-900 leading-relaxed">
+          <span className="font-bold text-amber-950">Hardware Integration Architecture:</span> The dashboard currently runs with simulated ESP32 node telemetry for software validation. Physical ESP32 microcontrollers can stream live sensor readings directly via the REST endpoint <code className="px-1.5 py-0.5 rounded bg-amber-200/50 font-mono text-[11px] text-amber-950">POST /api/sensors/readings</code> or MQTT telemetry broker.
+        </div>
+      </div>
+
       {/* Network Health Overview Banner */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="p-5 rounded-2xl bg-white border border-slate-200/80 flex items-center gap-4">
