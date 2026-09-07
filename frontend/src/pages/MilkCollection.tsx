@@ -8,16 +8,20 @@ import { Input } from '../components/common/Input';
 import { Select } from '../components/common/Select';
 import { Modal } from '../components/common/Modal';
 import { MilkCollection as IMilkCollection } from '../types';
-import { Coins, Milk, Droplets, Download, Plus, Search, Calendar, CheckCircle2 } from 'lucide-react';
+import { Coins, Milk, Droplets, Download, Plus, Search, Calendar, CheckCircle2, QrCode } from 'lucide-react';
+import { CustomerLookupModal } from '../components/milk-test/CustomerLookupModal';
+import { useNavigate } from 'react-router-dom';
 import { useToast } from '../context/ToastContext';
 
 export const MilkCollection: React.FC = () => {
+  const navigate = useNavigate();
   const { collections, farmers, addMilkTest } = useDemoData();
   const { showToast } = useToast();
 
   const [search, setSearch] = useState('');
   const [dateFilter, setDateFilter] = useState('');
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
+  const [isLookupModalOpen, setIsLookupModalOpen] = useState(false);
 
   // Manual entry states
   const [manualFarmerId, setManualFarmerId] = useState(farmers[0]?.farmerId || '');
@@ -76,6 +80,7 @@ export const MilkCollection: React.FC = () => {
     try {
       await addMilkTest({
         farmerId: farmer.farmerId,
+        customerCode: farmer.customerCode,
         farmerName: farmer.name,
         deviceId: 'ESP32-MILK-001',
         quantity: Number(manualQty),
@@ -112,7 +117,16 @@ export const MilkCollection: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsLookupModalOpen(true)}
+            icon={<QrCode className="w-4 h-4 text-dairy-600" />}
+            className="border-dairy-300 bg-dairy-50/50 hover:bg-dairy-100 text-dairy-800 font-bold"
+          >
+            Scan Customer QR
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -315,6 +329,17 @@ export const MilkCollection: React.FC = () => {
           </div>
         </form>
       </Modal>
+
+      {/* Customer QR & Code Scanner Modal */}
+      {isLookupModalOpen && (
+        <CustomerLookupModal
+          isOpen={isLookupModalOpen}
+          onClose={() => setIsLookupModalOpen(false)}
+          onSelectCustomer={(customer) => {
+            navigate(`/milk-testing?customerCode=${encodeURIComponent(customer.customerCode || customer.farmerId)}&farmerId=${encodeURIComponent(customer.farmerId)}`);
+          }}
+        />
+      )}
     </div>
   );
 };

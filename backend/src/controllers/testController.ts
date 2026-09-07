@@ -346,6 +346,7 @@ export const createTest = async (req: Request, res: Response): Promise<void> => 
       createdCollection = {
         collectionId: `COL-${uniqueToken}`,
         farmerId: savedTest.farmerId,
+        customerCode: savedTest.customerCode,
         farmerName: savedTest.farmerName || 'Farmer',
         testId: savedTest.testId,
         quantity: savedTest.quantity,

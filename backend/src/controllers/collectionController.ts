@@ -4,11 +4,16 @@ import { IMilkCollection } from '../types';
 
 export const getCollections = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { farmerId, date, search } = req.query;
+    const { farmerId, customerCode, date, search } = req.query;
     let collections = await dataRepository.getCollections();
 
     if (farmerId && typeof farmerId === 'string') {
       collections = collections.filter(c => c.farmerId === farmerId);
+    }
+
+    if (customerCode && typeof customerCode === 'string') {
+      const formattedCode = customerCode.trim().toUpperCase();
+      collections = collections.filter(c => c.customerCode === formattedCode);
     }
 
     if (search && typeof search === 'string') {
@@ -17,7 +22,8 @@ export const getCollections = async (req: Request, res: Response): Promise<void>
         c =>
           c.collectionId.toLowerCase().includes(q) ||
           c.farmerName.toLowerCase().includes(q) ||
-          c.testId.toLowerCase().includes(q)
+          c.testId.toLowerCase().includes(q) ||
+          (c.customerCode && c.customerCode.toLowerCase().includes(q))
       );
     }
 
@@ -50,7 +56,7 @@ export const getCollections = async (req: Request, res: Response): Promise<void>
 
 export const createCollection = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { farmerId, farmerName, testId, quantity, fat, rate, totalAmount, qualityScore, result } = req.body;
+    const { farmerId, customerCode, farmerName, testId, quantity, fat, rate, totalAmount, qualityScore, result } = req.body;
 
     if (!farmerId || !quantity || !rate) {
       res.status(400).json({ success: false, error: 'farmerId, quantity and rate are required' });
@@ -63,7 +69,20 @@ export const createCollection = async (req: Request, res: Response): Promise<voi
       return;
     }
 
+    if (customerCode && farmer.customerCode && customerCode.trim().toUpperCase() !== farmer.customerCode) {
+      res.status(400).json({
+        success: false,
+        error: `Security validation failed: Customer code "${customerCode}" does not match farmerId "${farmer.farmerId}"`
+      });
+      return;
+    }
+
     const qtyNum = Number(quantity);
+    if (qtyNum <= 0) {
+      res.status(400).json({ success: false, error: 'Quantity must be greater than 0' });
+      return;
+    }
+
     const rateNum = Number(rate);
     const calculatedTotal = totalAmount ? Number(totalAmount) : Number((qtyNum * rateNum).toFixed(2));
     const uniqueToken = `${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
@@ -72,6 +91,7 @@ export const createCollection = async (req: Request, res: Response): Promise<voi
     const newCollection: IMilkCollection = {
       collectionId,
       farmerId: farmer.farmerId,
+      customerCode: farmer.customerCode,
       farmerName: farmerName || farmer.name || 'Farmer',
       testId: testId || `MANUAL-${uniqueToken}`,
       quantity: qtyNum,

@@ -26,6 +26,17 @@ class DataRepository {
 
   constructor() {
     CustomerCodeService.backfillCustomerCodes(this.farmers);
+    const farmerCodeMap = new Map(this.farmers.map(f => [f.farmerId, f.customerCode]));
+    for (const t of this.tests) {
+      if (!t.customerCode && farmerCodeMap.has(t.farmerId)) {
+        t.customerCode = farmerCodeMap.get(t.farmerId);
+      }
+    }
+    for (const c of this.collections) {
+      if (!c.customerCode && farmerCodeMap.has(c.farmerId)) {
+        c.customerCode = farmerCodeMap.get(c.farmerId);
+      }
+    }
   }
 
   public async seedDatabaseIfEmpty(): Promise<void> {
@@ -307,6 +318,19 @@ class DataRepository {
     this.devices = [...SEED_DEVICES];
     this.alerts = [...SEED_ALERTS];
     this.settings = { ...SEED_SETTINGS };
+
+    CustomerCodeService.backfillCustomerCodes(this.farmers);
+    const farmerCodeMap = new Map(this.farmers.map(f => [f.farmerId, f.customerCode]));
+    for (const t of this.tests) {
+      if (!t.customerCode && farmerCodeMap.has(t.farmerId)) {
+        t.customerCode = farmerCodeMap.get(t.farmerId);
+      }
+    }
+    for (const c of this.collections) {
+      if (!c.customerCode && farmerCodeMap.has(c.farmerId)) {
+        c.customerCode = farmerCodeMap.get(c.farmerId);
+      }
+    }
   }
 }
 

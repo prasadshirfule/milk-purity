@@ -7,6 +7,7 @@ const MilkCollectionSchema = new Schema<IMilkCollectionDocument>(
   {
     collectionId: { type: String, required: true, unique: true, index: true },
     farmerId: { type: String, required: true, index: true },
+    customerCode: { type: String, index: true },
     farmerName: { type: String, required: true },
     testId: { type: String, required: true, index: true },
     quantity: { type: Number, required: true },

@@ -27,6 +27,7 @@ export const CustomerLookupModal: React.FC<CustomerLookupModalProps> = ({
   const [inputCode, setInputCode] = useState('');
   const [codeError, setCodeError] = useState<string | null>(null);
   const [isSearching, setIsSearching] = useState(false);
+  const [confirmedCustomer, setConfirmedCustomer] = useState<Farmer | null>(null);
 
   // Search list input
   const [searchQuery, setSearchQuery] = useState('');
@@ -45,6 +46,7 @@ export const CustomerLookupModal: React.FC<CustomerLookupModalProps> = ({
       setSearchQuery('');
       setCameraError(null);
       setIsScanning(false);
+      setConfirmedCustomer(null);
     } else {
       stopCamera();
     }
@@ -60,7 +62,7 @@ export const CustomerLookupModal: React.FC<CustomerLookupModalProps> = ({
 
   // Start Camera when camera tab is active
   useEffect(() => {
-    if (isOpen && activeTab === 'camera') {
+    if (isOpen && activeTab === 'camera' && !confirmedCustomer) {
       startCamera();
     } else {
       stopCamera();
@@ -68,7 +70,7 @@ export const CustomerLookupModal: React.FC<CustomerLookupModalProps> = ({
     return () => {
       stopCamera();
     };
-  }, [isOpen, activeTab]);
+  }, [isOpen, activeTab, confirmedCustomer]);
 
   const startCamera = async () => {
     setCameraError(null);
@@ -151,14 +153,12 @@ export const CustomerLookupModal: React.FC<CustomerLookupModalProps> = ({
     try {
       const found = await getFarmerByCustomerCode(formatted);
       if (found) {
-        onSelectCustomer(found);
-        onClose();
+        setConfirmedCustomer(found);
       } else {
         // Fallback: Check if there is any farmer whose internal farmerId matches
         const fallback = farmers.find((f) => f.farmerId.toUpperCase() === formatted || f.customerCode?.toUpperCase() === formatted);
         if (fallback) {
-          onSelectCustomer(fallback);
-          onClose();
+          setConfirmedCustomer(fallback);
         } else {
           setCodeError(`Customer not found with code "${formatted}". Please verify the code and try again.`);
         }
@@ -196,46 +196,94 @@ export const CustomerLookupModal: React.FC<CustomerLookupModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title="Identify Customer / Farmer"
-      description="Scan customer QR card, enter customer code, or search the registered dairy directory."
+      description={confirmedCustomer ? "Confirm customer details before starting milk collection." : "Scan customer QR card, enter customer code, or search the registered dairy directory."}
       maxWidth="md"
     >
       <div className="space-y-4">
-        {/* Navigation Tabs */}
-        <div className="flex border-b border-slate-200">
-          <button
-            onClick={() => setActiveTab('code')}
-            className={`flex-1 py-2.5 text-xs font-bold uppercase tracking-wider text-center border-b-2 transition-colors flex items-center justify-center gap-1.5 ${
-              activeTab === 'code'
-                ? 'border-dairy-600 text-dairy-600'
-                : 'border-transparent text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            <QrCode className="w-4 h-4" />
-            Customer Code
-          </button>
-          <button
-            onClick={() => setActiveTab('camera')}
-            className={`flex-1 py-2.5 text-xs font-bold uppercase tracking-wider text-center border-b-2 transition-colors flex items-center justify-center gap-1.5 ${
-              activeTab === 'camera'
-                ? 'border-dairy-600 text-dairy-600'
-                : 'border-transparent text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            <Camera className="w-4 h-4" />
-            Scan QR (Camera)
-          </button>
-          <button
-            onClick={() => setActiveTab('search')}
-            className={`flex-1 py-2.5 text-xs font-bold uppercase tracking-wider text-center border-b-2 transition-colors flex items-center justify-center gap-1.5 ${
-              activeTab === 'search'
-                ? 'border-dairy-600 text-dairy-600'
-                : 'border-transparent text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            <Search className="w-4 h-4" />
-            Directory Search
-          </button>
-        </div>
+        {/* Step 2: Customer Identified Confirmation Card */}
+        {confirmedCustomer ? (
+          <div className="space-y-4 py-2">
+            <div className="p-5 rounded-2xl bg-gradient-to-br from-dairy-50 via-white to-slate-50 border-2 border-dairy-400 shadow-md space-y-3 text-center">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 text-xs font-black uppercase tracking-wider">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                CUSTOMER IDENTIFIED
+              </div>
+
+              <div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Customer Code</span>
+                <span className="font-mono text-2xl font-black text-dairy-800 tracking-widest">
+                  {confirmedCustomer.customerCode || confirmedCustomer.farmerId}
+                </span>
+              </div>
+
+              <div className="border-t border-slate-200/80 pt-2 space-y-1">
+                <h3 className="text-xl font-black text-slate-900">{confirmedCustomer.name}</h3>
+                <p className="text-xs text-slate-600">
+                  {confirmedCustomer.village} • {confirmedCustomer.animalType} Herd • Status: <strong className="text-emerald-700 font-bold">{confirmedCustomer.status}</strong>
+                </p>
+                <p className="text-[11px] text-slate-400 font-mono">ID: {confirmedCustomer.farmerId}</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 pt-3">
+                <Button
+                  variant="outline"
+                  size="md"
+                  onClick={() => setConfirmedCustomer(null)}
+                >
+                  Rescan / Change
+                </Button>
+                <Button
+                  variant="primary"
+                  size="md"
+                  className="bg-dairy-600 hover:bg-dairy-700 text-white font-bold"
+                  onClick={() => {
+                    onSelectCustomer(confirmedCustomer);
+                    onClose();
+                  }}
+                >
+                  Continue to Milk Collection
+                </Button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Navigation Tabs */}
+            <div className="flex border-b border-slate-200">
+              <button
+                onClick={() => setActiveTab('code')}
+                className={`flex-1 py-2.5 text-xs font-bold uppercase tracking-wider text-center border-b-2 transition-colors flex items-center justify-center gap-1.5 ${
+                  activeTab === 'code'
+                    ? 'border-dairy-600 text-dairy-600'
+                    : 'border-transparent text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                <QrCode className="w-4 h-4" />
+                Customer Code
+              </button>
+              <button
+                onClick={() => setActiveTab('camera')}
+                className={`flex-1 py-2.5 text-xs font-bold uppercase tracking-wider text-center border-b-2 transition-colors flex items-center justify-center gap-1.5 ${
+                  activeTab === 'camera'
+                    ? 'border-dairy-600 text-dairy-600'
+                    : 'border-transparent text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                <Camera className="w-4 h-4" />
+                Scan QR (Camera)
+              </button>
+              <button
+                onClick={() => setActiveTab('search')}
+                className={`flex-1 py-2.5 text-xs font-bold uppercase tracking-wider text-center border-b-2 transition-colors flex items-center justify-center gap-1.5 ${
+                  activeTab === 'search'
+                    ? 'border-dairy-600 text-dairy-600'
+                    : 'border-transparent text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                <Search className="w-4 h-4" />
+                Directory Search
+              </button>
+            </div>
 
         {/* Tab 1: Manual Customer Code Entry */}
         {activeTab === 'code' && (
@@ -402,7 +450,9 @@ export const CustomerLookupModal: React.FC<CustomerLookupModalProps> = ({
             </div>
           </div>
         )}
-      </div>
-    </Modal>
+      </>
+    )}
+  </div>
+</Modal>
   );
 };

@@ -113,6 +113,7 @@ export interface IMilkTest {
 export interface IMilkCollection {
   collectionId: string;
   farmerId: string;
+  customerCode?: string;
   farmerName: string;
   testId: string;
   quantity: number;

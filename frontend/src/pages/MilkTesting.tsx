@@ -4,6 +4,7 @@ import { useDemoData } from '../context/DemoDataContext';
 import { useRealtimeSensors, SimulationProfile } from '../hooks/useRealtimeSensors';
 import { useSettings } from '../context/SettingsContext';
 import { useToast } from '../context/ToastContext';
+import { CollectionReceiptModal } from '../components/milk-test/CollectionReceiptModal';
 import { FarmerSelector } from '../components/milk-test/FarmerSelector';
 import { CustomerLookupModal } from '../components/milk-test/CustomerLookupModal';
 import { SensorCard } from '../components/milk-test/SensorCard';
@@ -13,6 +14,7 @@ import { FarmerModal } from '../components/farmers/FarmerModal';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
+import { Badge } from '../components/common/Badge';
 import { Modal } from '../components/common/Modal';
 import { QualityCalculator } from '../services/qualityCalculator';
 import {
@@ -32,7 +34,10 @@ import {
   Cpu,
   HelpCircle,
   Coins,
-  QrCode
+  QrCode,
+  FileCheck,
+  Printer,
+  Eye
 } from 'lucide-react';
 
 export const MilkTesting: React.FC = () => {
@@ -45,8 +50,11 @@ export const MilkTesting: React.FC = () => {
   const [isFarmerModalOpen, setIsFarmerModalOpen] = useState<boolean>(false);
   const [isLookupModalOpen, setIsLookupModalOpen] = useState<boolean>(false);
   const [overrideModalOpen, setOverrideModalOpen] = useState<boolean>(false);
+  const [summaryModalOpen, setSummaryModalOpen] = useState<boolean>(false);
+  const [pendingDecision, setPendingDecision] = useState<'ACCEPT' | 'REJECT'>('ACCEPT');
   const [overrideReason, setOverrideReason] = useState<string>('Secondary laboratory spot-check verified');
-  const [testSuccessModal, setTestSuccessModal] = useState<any | null>(null);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [receiptData, setReceiptData] = useState<{ test: any; collection: any; farmer: any } | null>(null);
 
   // URL Query Param preselection (e.g. from QR scan / customer profile)
   useEffect(() => {
@@ -100,6 +108,8 @@ export const MilkTesting: React.FC = () => {
   const totalAmount = Number((quantity * currentRate).toFixed(2));
 
   const executeDecision = async (decision: 'ACCEPT' | 'REJECT', reason?: string) => {
+    if (isSaving) return;
+
     if (!selectedFarmerId) {
       showToast('Please select a delivering farmer first', 'error');
       return;
@@ -109,6 +119,7 @@ export const MilkTesting: React.FC = () => {
       return;
     }
 
+    setIsSaving(true);
     stopTest();
 
     try {
@@ -128,24 +139,30 @@ export const MilkTesting: React.FC = () => {
           : 'Accepted into primary bulk storage.'
       });
 
-      setTestSuccessModal({
-        decision,
+      setSummaryModalOpen(false);
+      setOverrideModalOpen(false);
+      setReceiptData({
         test: result.test,
-        quality: result.quality,
-        collection: result.collection
+        collection: result.collection,
+        farmer: selectedFarmer
       });
+      showToast(`Milk ${decision === 'ACCEPT' ? 'Collection' : 'Test'} saved successfully!`, 'success');
     } catch (err: any) {
       showToast(err?.message || 'Failed to record milk test', 'error');
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handleDecision = (decision: 'ACCEPT' | 'REJECT') => {
+    setPendingDecision(decision);
     if (decision === 'ACCEPT' && qualityPreview.result === 'REJECTED') {
       // Prompt for override reason
       setOverrideModalOpen(true);
       return;
     }
-    executeDecision(decision);
+    // Open final transaction summary modal
+    setSummaryModalOpen(true);
   };
 
   return (
@@ -506,74 +523,125 @@ export const MilkTesting: React.FC = () => {
         </Modal>
       )}
 
-      {/* Test Success / Recorded Modal */}
-      {testSuccessModal && (
+      {/* Transaction Summary Confirmation Modal */}
+      {summaryModalOpen && selectedFarmer && (
         <Modal
-          isOpen={!!testSuccessModal}
-          onClose={() => setTestSuccessModal(null)}
-          title={testSuccessModal.decision === 'ACCEPT' ? 'Milk Batch Processed & Recorded' : 'Milk Batch Rejected'}
+          isOpen={summaryModalOpen}
+          onClose={() => !isSaving && setSummaryModalOpen(false)}
+          title="Confirm Milk Collection Transaction"
+          description="Verify intake volume, purity screening result, and financial settlement before logging collection."
           maxWidth="md"
         >
-          <div className="space-y-4 text-center">
-            <div className="w-16 h-16 rounded-full mx-auto flex items-center justify-center bg-slate-100">
-              {testSuccessModal.decision === 'ACCEPT' ? (
-                <CheckCircle2 className="w-10 h-10 text-emerald-600" />
-              ) : (
-                <XCircle className="w-10 h-10 text-rose-600" />
-              )}
-            </div>
-
-            <div>
-              <h3 className="text-xl font-bold text-slate-900">
-                Test ID: {testSuccessModal.test.testId}
-              </h3>
-              <p className="text-xs text-slate-500 mt-1">
-                Farmer: {testSuccessModal.test.farmerName} ({testSuccessModal.test.farmerId})
-              </p>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 text-left space-y-2 text-xs">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Quality Classification:</span>
-                <strong className="text-slate-800">{testSuccessModal.quality.classification} ({testSuccessModal.quality.score}%)</strong>
+          <div className="space-y-4">
+            {/* Customer Identification Header */}
+            <div className="p-3.5 rounded-xl bg-dairy-50/80 border border-dairy-200 flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-bold uppercase text-slate-400 block">Customer</span>
+                <strong className="text-sm font-black text-slate-900">{selectedFarmer.name}</strong>
+                <p className="text-xs text-slate-500">{selectedFarmer.village}</p>
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Final Decision:</span>
-                <span className={`px-2 py-0.5 rounded font-bold text-[10px] uppercase ${
-                  testSuccessModal.decision === 'ACCEPT' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
-                }`}>
-                  {testSuccessModal.decision}
+              <div className="text-right">
+                <span className="text-[10px] font-bold uppercase text-slate-400 block">Customer Code</span>
+                <span className="font-mono text-sm font-black text-dairy-800 bg-white px-2 py-0.5 rounded border border-dairy-200 inline-block">
+                  {selectedFarmer.customerCode || selectedFarmer.farmerId}
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Intake Volume:</span>
-                <strong className="text-slate-800">{testSuccessModal.test.quantity} Litres</strong>
-              </div>
-              {testSuccessModal.decision === 'ACCEPT' ? (
-                <>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Rate per Litre:</span>
-                    <strong className="text-dairy-700 font-mono">₹{testSuccessModal.test.ratePerLiter}</strong>
-                  </div>
-                  <div className="flex justify-between pt-1 border-t border-slate-200">
-                    <span className="text-slate-700 font-bold">Total Collection Amount:</span>
-                    <strong className="text-dairy-900 text-sm font-bold font-mono">₹{testSuccessModal.test.totalAmount?.toLocaleString()}</strong>
-                  </div>
-                </>
-              ) : (
-                <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-[11px] text-center font-medium">
-                  Batch rejected by operator. Payout: ₹0. No collection ledger entry generated.
-                </div>
-              )}
             </div>
 
-            <div className="flex justify-center pt-2">
-              <Button variant="primary" size="md" onClick={() => setTestSuccessModal(null)}>
-                Done & Next Test
+            {/* Milk & Pricing Summary */}
+            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-2">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Delivered Volume:</span>
+                <strong className="text-slate-900 font-mono">{quantity} Litres</strong>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Estimated Fat Content:</span>
+                <strong className="text-slate-800 font-mono">{reading.fat}%</strong>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Calculated Payout Rate:</span>
+                <strong className="text-dairy-700 font-mono">
+                  {pendingDecision === 'REJECT' ? '₹0.00 / L (Rejected)' : `₹${currentRate} / L`}
+                </strong>
+              </div>
+              <div className="flex justify-between pt-1 border-t border-slate-200 text-sm font-bold">
+                <span className="text-slate-700">Estimated Total Amount:</span>
+                <span className="font-mono text-base text-dairy-900">
+                  {pendingDecision === 'REJECT' ? '₹0.00' : `₹${totalAmount.toLocaleString()}`}
+                </span>
+              </div>
+            </div>
+
+            {/* Quality Assessment Breakdown */}
+            <div className="p-3.5 rounded-xl bg-slate-900 text-white text-xs space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400">Purity Score (%):</span>
+                <span className="font-mono font-bold text-sm text-dairy-400">
+                  {qualityPreview.purityScore || qualityPreview.score}%
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400">Quality Classification:</span>
+                <Badge variant="primary" size="sm">
+                  {qualityPreview.classification || 'EXCELLENT'}
+                </Badge>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400">AI Recommendation:</span>
+                <Badge
+                  variant={qualityPreview.result === 'ACCEPTED' ? 'success' : qualityPreview.result === 'WARNING' ? 'warning' : 'danger'}
+                  size="sm"
+                >
+                  {qualityPreview.result === 'ACCEPTED' ? 'ACCEPT' : qualityPreview.result === 'WARNING' ? 'REVIEW' : 'REJECT'}
+                </Badge>
+              </div>
+              <div className="flex justify-between items-center pt-1 border-t border-slate-800">
+                <span className="text-slate-300 font-bold">Operator Decision:</span>
+                <span className={`px-2 py-0.5 rounded font-black text-xs uppercase ${
+                  pendingDecision === 'ACCEPT' ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'
+                }`}>
+                  {pendingDecision}
+                </span>
+              </div>
+            </div>
+
+            {/* Action Buttons with Duplicate Submission Protection */}
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <Button
+                variant="ghost"
+                size="md"
+                disabled={isSaving}
+                onClick={() => setSummaryModalOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant={pendingDecision === 'ACCEPT' ? 'primary' : 'danger'}
+                size="md"
+                disabled={isSaving}
+                className="font-bold min-w-[160px] justify-center"
+                onClick={() => executeDecision(pendingDecision)}
+              >
+                {isSaving ? 'Saving Collection...' : 'Confirm Collection'}
               </Button>
             </div>
           </div>
         </Modal>
+      )}
+
+      {/* Collection Receipt Modal */}
+      {receiptData && (
+        <CollectionReceiptModal
+          isOpen={!!receiptData}
+          onClose={() => setReceiptData(null)}
+          test={receiptData.test}
+          collection={receiptData.collection}
+          farmer={receiptData.farmer}
+          onNewTest={() => {
+            setReceiptData(null);
+            resetReadings();
+          }}
+        />
       )}
 
       {/* Customer QR & Code Scanner Modal */}

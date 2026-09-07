@@ -240,4 +240,127 @@ describe('Customer Code & QR Identification Workflow Tests', () => {
     assert.strictEqual(json.success, false);
     assert.strictEqual(json.data, undefined);
   });
+
+  it('15. QR customer -> collection creation maintains identical customerCode, farmerId, and financial amounts', async () => {
+    const res = await fetch(`${baseUrl}/api/tests`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        customerCode: 'B5831',
+        quantity: 35.0,
+        temperature: 24.0,
+        ph: 6.64,
+        fat: 4.5,
+        density: 1.029,
+        conductivity: 5.0,
+        milkLevel: 35.0,
+        operatorDecision: 'ACCEPT'
+      })
+    });
+    const json = await res.json();
+    assert.strictEqual(res.status, 201);
+    assert.strictEqual(json.success, true);
+    assert.strictEqual(json.data.customerCode, 'B5831');
+    assert.strictEqual(json.data.farmerId, 'FMR-1002');
+    assert.ok(json.collection, 'Collection record should be created for accepted batch');
+    assert.strictEqual(json.collection.customerCode, 'B5831');
+    assert.strictEqual(json.collection.farmerId, 'FMR-1002');
+    assert.strictEqual(json.collection.quantity, 35.0);
+    assert.strictEqual(json.collection.totalAmount, json.data.totalAmount);
+  });
+
+  it('16. Zero and negative quantities are rejected with HTTP 400', async () => {
+    const resZero = await fetch(`${baseUrl}/api/tests`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        customerCode: 'A1024',
+        quantity: 0,
+        temperature: 24.0,
+        ph: 6.64,
+        fat: 4.5,
+        density: 1.029,
+        conductivity: 5.0,
+        milkLevel: 0,
+        operatorDecision: 'ACCEPT'
+      })
+    });
+    assert.strictEqual(resZero.status, 400);
+
+    const resNeg = await fetch(`${baseUrl}/api/tests`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        customerCode: 'A1024',
+        quantity: -15.5,
+        temperature: 24.0,
+        ph: 6.64,
+        fat: 4.5,
+        density: 1.029,
+        conductivity: 5.0,
+        milkLevel: -15.5,
+        operatorDecision: 'ACCEPT'
+      })
+    });
+    assert.strictEqual(resNeg.status, 400);
+  });
+
+  it('17. Operator override requires non-empty reason when accepting rejected batch', async () => {
+    // Acidic / abnormal sample triggers REJECT recommendation
+    const res = await fetch(`${baseUrl}/api/tests`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        customerCode: 'P0047',
+        quantity: 20.0,
+        temperature: 32.0,
+        ph: 5.9,
+        fat: 2.1,
+        density: 1.020,
+        conductivity: 8.5,
+        milkLevel: 20.0,
+        operatorDecision: 'ACCEPT',
+        overrideReason: '' // Empty reason
+      })
+    });
+    const json = await res.json();
+    assert.strictEqual(res.status, 400);
+    assert.strictEqual(json.success, false);
+    assert.match(json.error, /Manual override requires a non-empty overrideReason/);
+  });
+
+  it('18. Rejected milk batch yields rate=0 and creates NO collection ledger entry', async () => {
+    const res = await fetch(`${baseUrl}/api/tests`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        customerCode: 'M2741',
+        quantity: 50.0,
+        temperature: 30.0,
+        ph: 5.8,
+        fat: 2.0,
+        density: 1.020,
+        conductivity: 9.0,
+        milkLevel: 50.0,
+        operatorDecision: 'REJECT'
+      })
+    });
+    const json = await res.json();
+    assert.strictEqual(res.status, 201);
+    assert.strictEqual(json.data.result, 'REJECTED');
+    assert.strictEqual(json.data.ratePerLiter, 0);
+    assert.strictEqual(json.data.totalAmount, 0);
+    assert.strictEqual(json.collection, undefined);
+  });
+
+  it('19. Collection query by customerCode returns linked customer collections', async () => {
+    const res = await fetch(`${baseUrl}/api/collections?customerCode=A1024`);
+    const json = await res.json();
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(json.success, true);
+    assert.ok(Array.isArray(json.data));
+    for (const c of json.data) {
+      assert.strictEqual(c.customerCode, 'A1024');
+    }
+  });
 });
