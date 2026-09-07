@@ -211,6 +211,8 @@ export interface IDevice {
   connectionMode?: ConnectionMode;
   firmwareVersion: string;
   apiKey?: string;
+  apiKeyHash?: string;
+  isDeactivated?: boolean;
   ipAddress?: string;
   macAddress?: string;
   lastSeen?: Date;

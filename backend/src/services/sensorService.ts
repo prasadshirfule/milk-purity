@@ -4,6 +4,11 @@ class SensorService {
   private latestReadings: Map<string, ISensorReading> = new Map();
 
   constructor() {
+    this.resetAll();
+  }
+
+  public resetAll(): void {
+    this.latestReadings.clear();
     // Baseline sample initialized only for the demo device
     this.latestReadings.set('ESP32-DEMO-001', {
       deviceId: 'ESP32-DEMO-001',

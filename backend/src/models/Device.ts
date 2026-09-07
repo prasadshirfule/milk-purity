@@ -24,6 +24,8 @@ const DeviceSchema = new Schema<IDeviceDocument>(
     },
     firmwareVersion: { type: String, default: 'v1.2.0' },
     apiKey: { type: String },
+    apiKeyHash: { type: String },
+    isDeactivated: { type: Boolean, default: false },
     ipAddress: { type: String, default: '192.168.1.105' },
     macAddress: { type: String, default: '3C:71:BF:4E:91:2A' },
     lastSeen: { type: Date },

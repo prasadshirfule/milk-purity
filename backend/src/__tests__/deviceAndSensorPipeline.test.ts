@@ -1,15 +1,18 @@
-import { describe, it, beforeEach } from 'node:test';
+import { describe, it, beforeEach, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { sensorService } from '../services/sensorService';
 import { QualityService } from '../services/qualityService';
 import { dataRepository } from '../services/seedService';
 import { generateAuthToken } from '../middleware/authMiddleware';
+import { resetDeviceRateLimits } from '../utils/deviceSecurity';
 import { ISensorReading, IDevice } from '../types';
 
 describe('ESP32 Device Integration Foundation & Sensor Pipeline', () => {
   beforeEach(async () => {
     // Reset seed/in-memory data for deterministic testing
     await dataRepository.resetDefaults();
+    sensorService.resetAll();
+    resetDeviceRateLimits();
   });
 
   describe('1. Canonical ESP32 Telemetry Contract Validation', () => {
@@ -583,6 +586,309 @@ describe('ESP32 Device Integration Foundation & Sensor Pipeline', () => {
       const validation = sensorService.validateReading(reading);
       assert.strictEqual(validation.valid, true);
       assert.strictEqual(validation.reading?.batteryLevel, 12);
+    });
+  });
+
+  describe('10. End-to-End HTTP Route Authentication & Telemetry API Verification', () => {
+    let server: any;
+    let baseUrl: string;
+
+    before(async () => {
+      const { createApp } = await import('../app');
+      const app = createApp();
+      await new Promise<void>((resolve) => {
+        server = app.listen(0, '127.0.0.1', () => {
+          const port = (server.address() as any).port;
+          baseUrl = `http://127.0.0.1:${port}`;
+          resolve();
+        });
+      });
+    });
+
+    after(async () => {
+      if (server) {
+        await new Promise<void>((resolve) => server.close(() => resolve()));
+      }
+    });
+
+    it('POST /api/devices/:deviceId/telemetry returns 404 for unknown device', async () => {
+      const res = await fetch(`${baseUrl}/api/devices/ESP32-NONEXISTENT/telemetry`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Device-Key': 'random_key'
+        },
+        body: JSON.stringify({
+          temperature: 24.0,
+          ph: 6.65,
+          fat: 4.5,
+          density: 1.029,
+          conductivity: 5.0
+        })
+      });
+      assert.strictEqual(res.status, 404);
+      const body: any = await res.json();
+      assert.strictEqual(body.success, false);
+      assert.match(body.error, /not registered/i);
+    });
+
+    it('POST /api/devices/:deviceId/telemetry returns 401 when X-Device-Key header is missing', async () => {
+      // ESP32-MILK-001 is a connected device requiring auth
+      const res = await fetch(`${baseUrl}/api/devices/ESP32-MILK-001/telemetry`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          temperature: 24.0,
+          ph: 6.65,
+          fat: 4.5,
+          density: 1.029,
+          conductivity: 5.0
+        })
+      });
+      assert.strictEqual(res.status, 401);
+      const body: any = await res.json();
+      assert.strictEqual(body.success, false);
+      assert.match(body.error, /authentication failed/i);
+    });
+
+    it('POST /api/devices/:deviceId/telemetry returns 401 when wrong X-Device-Key is provided', async () => {
+      const res = await fetch(`${baseUrl}/api/devices/ESP32-MILK-001/telemetry`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Device-Key': 'incorrect_secret_key_12345'
+        },
+        body: JSON.stringify({
+          temperature: 24.0,
+          ph: 6.65,
+          fat: 4.5,
+          density: 1.029,
+          conductivity: 5.0
+        })
+      });
+      assert.strictEqual(res.status, 401);
+      const body: any = await res.json();
+      assert.strictEqual(body.success, false);
+      assert.match(body.error, /authentication failed/i);
+    });
+
+    it('POST /api/devices/:deviceId/telemetry succeeds with valid X-Device-Key header', async () => {
+      const res = await fetch(`${baseUrl}/api/devices/ESP32-MILK-001/telemetry`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Device-Key': 'dev_key_esp32_milk_001_live'
+        },
+        body: JSON.stringify({
+          temperature: 24.2,
+          ph: 6.65,
+          fat: 4.5,
+          density: 1.029,
+          conductivity: 4.9,
+          milkLevel: 30.0,
+          sequenceNumber: 2001
+        })
+      });
+      assert.strictEqual(res.status, 200);
+      const body: any = await res.json();
+      assert.strictEqual(body.success, true);
+      assert.strictEqual(body.reading.temperature, 24.2);
+    });
+
+    it('POST /api/devices/:deviceId/telemetry handles duplicate packet with 200 isDuplicate: true', async () => {
+      // 1. First send initial packet
+      await fetch(`${baseUrl}/api/devices/ESP32-MILK-001/telemetry`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Device-Key': 'dev_key_esp32_milk_001_live'
+        },
+        body: JSON.stringify({
+          temperature: 24.2,
+          ph: 6.65,
+          fat: 4.5,
+          density: 1.029,
+          conductivity: 4.9,
+          milkLevel: 30.0,
+          sequenceNumber: 2001
+        })
+      });
+
+      // 2. Send duplicate packet with same sequence number
+      const duplicatePayload = {
+        temperature: 24.2,
+        ph: 6.65,
+        fat: 4.5,
+        density: 1.029,
+        conductivity: 4.9,
+        milkLevel: 30.0,
+        sequenceNumber: 2001 // Same sequence
+      };
+      const res = await fetch(`${baseUrl}/api/devices/ESP32-MILK-001/telemetry`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Device-Key': 'dev_key_esp32_milk_001_live'
+        },
+        body: JSON.stringify(duplicatePayload)
+      });
+      assert.strictEqual(res.status, 200);
+      const body: any = await res.json();
+      assert.strictEqual(body.success, true);
+      assert.strictEqual(body.isDuplicate, true);
+    });
+
+    it('POST /api/devices/:deviceId/telemetry rejects out-of-order sequence with 409 Conflict', async () => {
+      // 1. Send initial newer packet (seq 2001)
+      await fetch(`${baseUrl}/api/devices/ESP32-MILK-001/telemetry`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Device-Key': 'dev_key_esp32_milk_001_live'
+        },
+        body: JSON.stringify({
+          temperature: 24.2,
+          ph: 6.65,
+          fat: 4.5,
+          density: 1.029,
+          conductivity: 4.9,
+          milkLevel: 30.0,
+          sequenceNumber: 2001
+        })
+      });
+
+      // 2. Send older packet (seq 1500)
+      const oldPayload = {
+        temperature: 24.0,
+        ph: 6.60,
+        fat: 4.0,
+        density: 1.028,
+        conductivity: 5.1,
+        milkLevel: 25.0,
+        sequenceNumber: 1500 // Older sequence (< 2001)
+      };
+      const res = await fetch(`${baseUrl}/api/devices/ESP32-MILK-001/telemetry`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Device-Key': 'dev_key_esp32_milk_001_live'
+        },
+        body: JSON.stringify(oldPayload)
+      });
+      assert.strictEqual(res.status, 409);
+      const body: any = await res.json();
+      assert.strictEqual(body.success, false);
+      assert.match(body.error, /out-of-order|older/i);
+    });
+
+    it('GET /api/devices and GET /api/devices/:id NEVER leak apiKey or apiKeyHash', async () => {
+      const resList = await fetch(`${baseUrl}/api/devices`);
+      assert.strictEqual(resList.status, 200);
+      const bodyList: any = await resList.json();
+      assert.strictEqual(bodyList.success, true);
+      for (const dev of bodyList.data) {
+        assert.strictEqual(dev.apiKey, undefined, `apiKey must never be in GET /api/devices (${dev.deviceId})`);
+        assert.strictEqual(dev.apiKeyHash, undefined, `apiKeyHash must never be in GET /api/devices (${dev.deviceId})`);
+      }
+
+      const resSingle = await fetch(`${baseUrl}/api/devices/ESP32-MILK-001`);
+      assert.strictEqual(resSingle.status, 200);
+      const bodySingle: any = await resSingle.json();
+      assert.strictEqual(bodySingle.success, true);
+      assert.strictEqual(bodySingle.data.apiKey, undefined, 'apiKey must never be in GET /api/devices/:id');
+      assert.strictEqual(bodySingle.data.apiKeyHash, undefined, 'apiKeyHash must never be in GET /api/devices/:id');
+    });
+
+    it('Admin device registration returns provisioningKey once and hashes the stored key', async () => {
+      const adminToken = generateAuthToken({ userId: 'USR-001', username: 'admin', role: 'ADMIN' });
+      const res = await fetch(`${baseUrl}/api/devices`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${adminToken}`
+        },
+        body: JSON.stringify({
+          deviceId: 'ESP32-NEW-PROVISION',
+          name: 'Newly Provisioned Dock',
+          location: 'Bay 4'
+        })
+      });
+
+      assert.strictEqual(res.status, 201);
+      const body: any = await res.json();
+      assert.strictEqual(body.success, true);
+      assert.ok(body.data.provisioningKey, 'Must provide provisioningKey on registration');
+      assert.match(body.data.provisioningKey, /^dev_sec_/);
+
+      // Now query the newly created device via GET - verify secret is not returned
+      const getRes = await fetch(`${baseUrl}/api/devices/ESP32-NEW-PROVISION`);
+      const getBody: any = await getRes.json();
+      assert.strictEqual(getBody.success, true);
+      assert.strictEqual(getBody.data.apiKey, undefined);
+      assert.strictEqual(getBody.data.apiKeyHash, undefined);
+      assert.strictEqual(getBody.data.provisioningKey, undefined);
+    });
+
+    it('Deactivated device is blocked from submitting telemetry', async () => {
+      await dataRepository.updateDevice('ESP32-MILK-001', { isDeactivated: true });
+      const res = await fetch(`${baseUrl}/api/devices/ESP32-MILK-001/telemetry`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Device-Key': 'dev_key_esp32_milk_001_live'
+        },
+        body: JSON.stringify({
+          temperature: 24.2,
+          ph: 6.65,
+          fat: 4.5,
+          density: 1.029,
+          conductivity: 4.9
+        })
+      });
+      assert.strictEqual(res.status, 403);
+      const body: any = await res.json();
+      assert.strictEqual(body.success, false);
+      assert.match(body.error, /deactivated/i);
+    });
+
+    it('Authenticated operator identity cannot be spoofed in POST /api/tests', async () => {
+      const operatorToken = generateAuthToken({
+        userId: 'USR-002',
+        username: 'operator',
+        name: 'Rajendra Deshmukh',
+        role: 'OPERATOR'
+      });
+
+      const res = await fetch(`${baseUrl}/api/tests`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${operatorToken}`
+        },
+        body: JSON.stringify({
+          farmerId: 'FMR-1001',
+          customerCode: 'A1024',
+          deviceId: 'ESP32-DEMO-001',
+          quantity: 25.0,
+          temperature: 24.0,
+          ph: 6.65,
+          fat: 4.5,
+          density: 1.029,
+          conductivity: 5.0,
+          operatorDecision: 'ACCEPT',
+          // Malicious attempt to spoof operatorId
+          operatorId: 'USR-SPOOFED-ADMIN',
+          operatorName: 'Fake Admin'
+        })
+      });
+
+      assert.strictEqual(res.status, 201);
+      const body: any = await res.json();
+      assert.strictEqual(body.success, true);
+      assert.strictEqual(body.data.operatorId, 'USR-002', 'Must use authenticated userId, not spoofed body attribute');
+      assert.strictEqual(body.data.operatorName, 'Rajendra Deshmukh');
     });
   });
 });

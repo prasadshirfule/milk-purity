@@ -9,6 +9,7 @@ import { User } from '../models/User';
 import { AuditLog } from '../models/AuditLog';
 import { CustomerCodeService } from './customerCodeService';
 import { sensorService } from './sensorService';
+import { hashDeviceSecret } from '../utils/deviceSecurity';
 import {
   SEED_FARMERS,
   SEED_TESTS,
@@ -245,6 +246,9 @@ class DataRepository {
 
   // --- DEVICES & SENSORS ---
   public resolveDeviceStatus(device: IDevice, timeoutMs = 60000): DeviceStatus {
+    if (device.isDeactivated) {
+      return 'OFFLINE';
+    }
     if (!device.lastSeen) {
       return 'UNKNOWN';
     }
@@ -290,6 +294,7 @@ class DataRepository {
   }
 
   public async addDevice(data: Partial<IDevice>): Promise<IDevice> {
+    const rawApiKey = data.apiKey || `dev_key_${Math.random().toString(36).substring(2, 10)}`;
     const newDevice: IDevice = {
       deviceId: data.deviceId || `ESP32-STATION-${String(this.devices.length + 1).padStart(3, '0')}`,
       name: data.name || 'New Sensor Dock',
@@ -297,7 +302,9 @@ class DataRepository {
       status: 'UNKNOWN',
       connectionMode: data.connectionMode || 'CONNECTED',
       firmwareVersion: data.firmwareVersion || 'v1.0.0',
-      apiKey: data.apiKey || `dev_key_${Math.random().toString(36).substring(2, 10)}`,
+      apiKey: rawApiKey,
+      apiKeyHash: data.apiKeyHash || hashDeviceSecret(rawApiKey),
+      isDeactivated: data.isDeactivated || false,
       ipAddress: data.ipAddress || '192.168.1.150',
       macAddress: data.macAddress || '24:6F:28:8A:99:99',
       lastSeen: undefined,

@@ -1,13 +1,14 @@
 /**
- * MILKGUARD ESP32 IoT Analyzer Firmware Skeleton
+ * MILKGUARD ESP32 Hardware Integration Firmware Skeleton
  * 
  * Target Board: ESP32-WROOM-32 / ESP32-S3
- * Framework   : Arduino / ESP-IDF
+ * Framework   : Arduino / PlatformIO
  *
- * Notice:
- * This firmware skeleton establishes the HTTP REST telemetry transport,
- * header authentication (X-Device-Key), JSON payload serialization, sequence
- * tracking, and non-blocking sensor sampling architecture.
+ * Notice & Hardware Honesty:
+ * Physical ESP32 microcontrollers and physical sensors have NOT yet been connected or tested in production.
+ * This firmware provides a hardware-ready integration foundation establishing HTTP REST
+ * telemetry transport, header authentication (X-Device-Key), JSON payload serialization,
+ * sequence tracking, and non-blocking sensor sampling architecture.
  *
  * Physical sensor breakout functions are provided as modular hooks ready for
  * hardware-specific driver libraries (DS18B20, pH-4502C, EC probe, optical NIR).
