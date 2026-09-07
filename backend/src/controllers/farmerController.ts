@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { dataRepository } from '../services/seedService';
+import { CustomerCodeService } from '../services/customerCodeService';
 
 export const getFarmers = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -9,7 +10,11 @@ export const getFarmers = async (req: Request, res: Response): Promise<void> => 
     if (search && typeof search === 'string') {
       const q = search.toLowerCase();
       farmers = farmers.filter(
-        f => f.name.toLowerCase().includes(q) || f.farmerId.toLowerCase().includes(q) || f.village.toLowerCase().includes(q)
+        f =>
+          f.name.toLowerCase().includes(q) ||
+          f.farmerId.toLowerCase().includes(q) ||
+          (f.customerCode && f.customerCode.toLowerCase().includes(q)) ||
+          f.village.toLowerCase().includes(q)
       );
     }
 
@@ -51,12 +56,58 @@ export const getFarmerById = async (req: Request, res: Response): Promise<void> 
   }
 };
 
+export const getFarmerByCustomerCode = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const rawCode = req.params.customerCode;
+    const formattedCode = typeof rawCode === 'string' ? rawCode.trim().toUpperCase() : '';
+
+    if (!CustomerCodeService.isValidFormat(formattedCode)) {
+      res.status(400).json({
+        success: false,
+        error: `Invalid Customer Code format "${rawCode}". Expected 1 uppercase letter followed by 4 digits (e.g. A1024).`
+      });
+      return;
+    }
+
+    const farmer = await dataRepository.getFarmerByCustomerCode(formattedCode);
+    if (!farmer) {
+      res.status(404).json({
+        success: false,
+        error: `Customer not found with code: ${formattedCode}`
+      });
+      return;
+    }
+
+    // Get customer tests history
+    const allTests = await dataRepository.getTests();
+    const farmerTests = allTests.filter(t => t.farmerId === farmer.farmerId || t.customerCode === formattedCode);
+
+    res.json({
+      success: true,
+      data: {
+        ...farmer,
+        tests: farmerTests
+      }
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 export const createFarmer = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { name, mobile, village, animalType, address, notes, status } = req.body;
+    const { name, mobile, village, animalType, address, notes, status, customerCode } = req.body;
 
     if (!name || !mobile || !village) {
       res.status(400).json({ success: false, error: 'Name, mobile and village are required fields' });
+      return;
+    }
+
+    if (customerCode && !CustomerCodeService.isValidFormat(customerCode)) {
+      res.status(400).json({
+        success: false,
+        error: `Invalid Customer Code format "${customerCode}". Expected 1 uppercase letter followed by 4 digits (e.g. A1024).`
+      });
       return;
     }
 
@@ -64,6 +115,7 @@ export const createFarmer = async (req: Request, res: Response): Promise<void> =
       name,
       mobile,
       village,
+      customerCode,
       animalType: animalType || 'COW',
       address,
       notes,

@@ -9,6 +9,7 @@ export interface IFarmerDocument extends Omit<IFarmer, 'createdAt' | 'updatedAt'
 const FarmerSchema = new Schema<IFarmerDocument>(
   {
     farmerId: { type: String, required: true, unique: true, index: true },
+    customerCode: { type: String, required: true, unique: true, index: true, match: /^[A-Z][0-9]{4}$/ },
     name: { type: String, required: true, trim: true },
     mobile: { type: String, required: true, trim: true },
     village: { type: String, required: true, trim: true },

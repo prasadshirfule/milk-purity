@@ -22,11 +22,14 @@ export const Farmers: React.FC = () => {
   const [deletingFarmerId, setDeletingFarmerId] = useState<string | null>(null);
 
   const filteredFarmers = farmers.filter((f) => {
+    const q = search.toLowerCase().trim();
     const matchesSearch =
-      f.name.toLowerCase().includes(search.toLowerCase()) ||
-      f.farmerId.toLowerCase().includes(search.toLowerCase()) ||
-      f.village.toLowerCase().includes(search.toLowerCase()) ||
-      f.mobile.includes(search);
+      !q ||
+      f.name.toLowerCase().includes(q) ||
+      (f.customerCode && f.customerCode.toLowerCase().includes(q)) ||
+      f.farmerId.toLowerCase().includes(q) ||
+      f.village.toLowerCase().includes(q) ||
+      f.mobile.includes(q);
 
     const matchesAnimal = animalFilter === 'ALL' || f.animalType === animalFilter;
     const matchesStatus = statusFilter === 'ALL' || f.status === statusFilter;
@@ -65,10 +68,10 @@ export const Farmers: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">
-            Dairy Farmer Registry & Profiles
+            Dairy Customer & Farmer Registry
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Manage registered milk producers, herd types, and historical supplier quality ratings
+            Manage registered milk producers, unique customer codes, QR identifiers, and quality ratings
           </p>
         </div>
 
@@ -81,7 +84,7 @@ export const Farmers: React.FC = () => {
           }}
           icon={<Plus className="w-4 h-4" />}
         >
-          Register New Farmer
+          Register New Customer
         </Button>
       </div>
 
@@ -91,7 +94,7 @@ export const Farmers: React.FC = () => {
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Search by name, ID, mobile, or village..."
+            placeholder="Search by Customer Code (A1024), Name, ID, or Village..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-10 pr-3.5 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-dairy-500 bg-slate-50 focus:bg-white"
@@ -129,14 +132,25 @@ export const Farmers: React.FC = () => {
       <DataTable<Farmer>
         data={filteredFarmers}
         keyExtractor={(f) => f.farmerId}
-        onRowClick={(f) => navigate(`/farmers/${f.farmerId}`)}
+        onRowClick={(f) => navigate(`/customer/${f.customerCode || f.farmerId}`)}
         columns={[
           {
-            header: 'Farmer ID',
-            accessor: (f) => <span className="font-mono font-bold text-slate-800">{f.farmerId}</span>
+            header: 'Code',
+            accessor: (f) => (
+              <span
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`/customer/${f.customerCode || f.farmerId}`);
+                }}
+                className="font-mono text-xs font-black text-dairy-700 bg-dairy-50 hover:bg-dairy-100 px-2 py-1 rounded-md border border-dairy-200 transition-colors inline-block cursor-pointer"
+                title="Open Customer Profile & QR Card"
+              >
+                {f.customerCode || f.farmerId}
+              </span>
+            )
           },
           {
-            header: 'Farmer Name',
+            header: 'Customer Name',
             accessor: (f) => (
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl bg-dairy-50 text-dairy-700 font-bold text-xs flex items-center justify-center">
@@ -145,7 +159,7 @@ export const Farmers: React.FC = () => {
                 <div>
                   <p className="font-bold text-slate-900 leading-tight">{f.name}</p>
                   <p className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
-                    <Phone className="w-3 h-3 text-slate-400" /> {f.mobile}
+                    <span className="font-mono text-[10px] text-slate-400">{f.farmerId}</span> • <Phone className="w-3 h-3 text-slate-400" /> {f.mobile}
                   </p>
                 </div>
               </div>
@@ -193,22 +207,22 @@ export const Farmers: React.FC = () => {
             accessor: (f) => (
               <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                 <button
-                  onClick={() => navigate(`/farmers/${f.farmerId}`)}
-                  title="View Details"
+                  onClick={() => navigate(`/customer/${f.customerCode || f.farmerId}`)}
+                  title="View Customer Profile & QR"
                   className="p-1.5 text-slate-400 hover:text-dairy-600 hover:bg-slate-100 rounded-lg transition-colors"
                 >
                   <Eye className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => handleEdit(f)}
-                  title="Edit Farmer"
+                  title="Edit Customer Record"
                   className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-slate-100 rounded-lg transition-colors"
                 >
                   <Edit2 className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => setDeletingFarmerId(f.farmerId)}
-                  title="Delete Farmer"
+                  title="Deactivate Record"
                   className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-slate-100 rounded-lg transition-colors"
                 >
                   <Trash2 className="w-4 h-4" />

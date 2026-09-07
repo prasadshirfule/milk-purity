@@ -19,6 +19,7 @@ export type AlertType =
 
 export interface IFarmer {
   farmerId: string;
+  customerCode?: string;
   name: string;
   mobile: string;
   village: string;
@@ -80,6 +81,7 @@ export interface IQualityResult {
 export interface IMilkTest {
   testId: string;
   farmerId: string;
+  customerCode?: string;
   farmerName?: string;
   deviceId: string;
   quantity: number; // Litres

@@ -26,10 +26,13 @@ export const MilkCollection: React.FC = () => {
   const [manualRate, setManualRate] = useState('41.5');
 
   const filteredCollections = collections.filter((c) => {
+    const q = search.toLowerCase().trim();
     const matchesSearch =
-      c.farmerName.toLowerCase().includes(search.toLowerCase()) ||
-      c.farmerId.toLowerCase().includes(search.toLowerCase()) ||
-      c.collectionId.toLowerCase().includes(search.toLowerCase());
+      !q ||
+      c.farmerName.toLowerCase().includes(q) ||
+      c.farmerId.toLowerCase().includes(q) ||
+      (c.customerCode && c.customerCode.toLowerCase().includes(q)) ||
+      c.collectionId.toLowerCase().includes(q);
 
     const matchesDate = !dateFilter || new Date(c.timestamp).toISOString().slice(0, 10) === dateFilter;
 
@@ -44,10 +47,10 @@ export const MilkCollection: React.FC = () => {
       : 0;
 
   const handleExportCSV = () => {
-    const headers = ['Collection ID,Test ID,Farmer ID,Farmer Name,Quantity (L),Estimated Fat (%),Rate (INR),Total Amount (INR),Date'];
+    const headers = ['Collection ID,Test ID,Customer Code,Farmer ID,Farmer Name,Quantity (L),Estimated Fat (%),Rate (INR),Total Amount (INR),Date'];
     const rows = filteredCollections.map(
       (c) =>
-        `"${c.collectionId}","${c.testId}","${c.farmerId}","${c.farmerName}",${c.quantity},${c.fat},${c.rate},${c.totalAmount},"${new Date(
+        `"${c.collectionId}","${c.testId}","${c.customerCode || ''}","${c.farmerId}","${c.farmerName}",${c.quantity},${c.fat},${c.rate},${c.totalAmount},"${new Date(
           c.timestamp
         ).toISOString()}"`
     );
@@ -209,11 +212,18 @@ export const MilkCollection: React.FC = () => {
             )
           },
           {
-            header: 'Farmer Name',
+            header: 'Customer / Farmer',
             accessor: (c) => (
               <div>
-                <p className="font-bold text-slate-800">{c.farmerName}</p>
-                <p className="text-[10px] text-slate-400">{c.farmerId}</p>
+                <div className="flex items-center gap-1.5">
+                  {c.customerCode && (
+                    <span className="font-mono text-[10px] font-black text-dairy-700 bg-dairy-50 px-1 py-0.5 rounded border border-dairy-200">
+                      {c.customerCode}
+                    </span>
+                  )}
+                  <p className="font-bold text-slate-800">{c.farmerName}</p>
+                </div>
+                <p className="text-[10px] text-slate-400 font-mono">{c.farmerId}</p>
               </div>
             )
           },

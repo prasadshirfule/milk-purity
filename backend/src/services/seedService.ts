@@ -5,6 +5,7 @@ import { MilkCollection } from '../models/MilkCollection';
 import { Device } from '../models/Device';
 import { Alert } from '../models/Alert';
 import { Setting } from '../models/Setting';
+import { CustomerCodeService } from './customerCodeService';
 import {
   SEED_FARMERS,
   SEED_TESTS,
@@ -23,6 +24,10 @@ class DataRepository {
   private alerts: IAlert[] = [...SEED_ALERTS];
   private settings: IDairySettings = { ...SEED_SETTINGS };
 
+  constructor() {
+    CustomerCodeService.backfillCustomerCodes(this.farmers);
+  }
+
   public async seedDatabaseIfEmpty(): Promise<void> {
     if (!getDbConnectionStatus()) return;
 
@@ -37,6 +42,21 @@ class DataRepository {
         await Alert.insertMany(SEED_ALERTS);
         await Setting.create(SEED_SETTINGS);
         console.log('✅ Seed completed successfully.');
+      } else {
+        // Idempotent migration: backfill any existing MongoDB farmer docs lacking customerCode
+        const existingFarmers = await Farmer.find().lean();
+        const existingCodes = new Set<string>();
+        for (const f of existingFarmers) {
+          if (f.customerCode && CustomerCodeService.isValidFormat(f.customerCode)) {
+            existingCodes.add(f.customerCode.trim().toUpperCase());
+          }
+        }
+        for (const f of existingFarmers) {
+          if (!f.customerCode || !CustomerCodeService.isValidFormat(f.customerCode)) {
+            const newCode = CustomerCodeService.generateUniqueCode(existingCodes);
+            await Farmer.updateOne({ _id: f._id }, { $set: { customerCode: newCode } });
+          }
+        }
       }
     } catch (err: any) {
       console.warn('⚠️ Seeding error:', err?.message || err);
@@ -58,9 +78,28 @@ class DataRepository {
     return this.farmers.find(f => f.farmerId === id) || null;
   }
 
+  public async getFarmerByCustomerCode(code: string): Promise<IFarmer | null> {
+    const formatted = typeof code === 'string' ? code.trim().toUpperCase() : '';
+    if (!CustomerCodeService.isValidFormat(formatted)) return null;
+
+    if (getDbConnectionStatus()) {
+      return (await Farmer.findOne({ customerCode: formatted }).lean()) as unknown as IFarmer | null;
+    }
+    return this.farmers.find(f => f.customerCode?.toUpperCase() === formatted) || null;
+  }
+
   public async addFarmer(data: Partial<IFarmer>): Promise<IFarmer> {
+    let assignedCode = data.customerCode?.trim().toUpperCase();
+    const existingFarmers = await this.getFarmers();
+    const existingCodes = new Set(existingFarmers.map(f => f.customerCode?.toUpperCase()).filter(Boolean) as string[]);
+
+    if (!assignedCode || !CustomerCodeService.isValidFormat(assignedCode) || existingCodes.has(assignedCode)) {
+      assignedCode = CustomerCodeService.generateUniqueCode(existingCodes);
+    }
+
     const newFarmer: IFarmer = {
       farmerId: data.farmerId || `FMR-${1000 + this.farmers.length + 1}`,
+      customerCode: assignedCode,
       name: data.name || 'New Farmer',
       mobile: data.mobile || '',
       village: data.village || '',

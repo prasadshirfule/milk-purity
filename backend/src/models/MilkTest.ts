@@ -7,6 +7,7 @@ const MilkTestSchema = new Schema<IMilkTestDocument>(
   {
     testId: { type: String, required: true, unique: true, index: true },
     farmerId: { type: String, required: true, index: true },
+    customerCode: { type: String, index: true },
     farmerName: { type: String, default: '' },
     deviceId: { type: String, required: true, default: 'ESP32-MILK-001' },
     quantity: { type: Number, required: true },

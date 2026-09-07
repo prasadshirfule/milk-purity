@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useDemoData } from '../context/DemoDataContext';
 import { useRealtimeSensors, SimulationProfile } from '../hooks/useRealtimeSensors';
 import { useSettings } from '../context/SettingsContext';
 import { useToast } from '../context/ToastContext';
 import { FarmerSelector } from '../components/milk-test/FarmerSelector';
+import { CustomerLookupModal } from '../components/milk-test/CustomerLookupModal';
 import { SensorCard } from '../components/milk-test/SensorCard';
 import { QualityScoreCard } from '../components/milk-test/QualityScoreCard';
 import { ParameterAnalysisTable } from '../components/milk-test/ParameterAnalysisTable';
@@ -29,19 +31,48 @@ import {
   AlertTriangle,
   Cpu,
   HelpCircle,
-  Coins
+  Coins,
+  QrCode
 } from 'lucide-react';
 
 export const MilkTesting: React.FC = () => {
+  const [searchParams] = useSearchParams();
   const { farmers, addFarmer, addMilkTest } = useDemoData();
   const { settings } = useSettings();
   const { showToast } = useToast();
 
   const [selectedFarmerId, setSelectedFarmerId] = useState<string>(farmers[0]?.farmerId || 'FMR-1001');
   const [isFarmerModalOpen, setIsFarmerModalOpen] = useState<boolean>(false);
+  const [isLookupModalOpen, setIsLookupModalOpen] = useState<boolean>(false);
   const [overrideModalOpen, setOverrideModalOpen] = useState<boolean>(false);
   const [overrideReason, setOverrideReason] = useState<string>('Secondary laboratory spot-check verified');
   const [testSuccessModal, setTestSuccessModal] = useState<any | null>(null);
+
+  // URL Query Param preselection (e.g. from QR scan / customer profile)
+  useEffect(() => {
+    const codeParam = searchParams.get('customerCode');
+    const farmerIdParam = searchParams.get('farmerId');
+
+    if (codeParam) {
+      const match = farmers.find(
+        (f) => f.customerCode?.toUpperCase() === codeParam.trim().toUpperCase()
+      );
+      if (match) {
+        setSelectedFarmerId(match.farmerId);
+        showToast(`Customer ${match.name} (${match.customerCode}) selected for intake test`, 'info');
+        return;
+      }
+    }
+
+    if (farmerIdParam) {
+      const match = farmers.find(
+        (f) => f.farmerId.toUpperCase() === farmerIdParam.trim().toUpperCase()
+      );
+      if (match) {
+        setSelectedFarmerId(match.farmerId);
+      }
+    }
+  }, [searchParams, farmers, showToast]);
 
   const {
     reading,
@@ -83,6 +114,7 @@ export const MilkTesting: React.FC = () => {
     try {
       const result = await addMilkTest({
         farmerId: selectedFarmerId,
+        customerCode: selectedFarmer?.customerCode,
         farmerName: selectedFarmer?.name,
         deviceId,
         quantity,
@@ -138,8 +170,18 @@ export const MilkTesting: React.FC = () => {
           </div>
         </div>
 
-        {/* Live Simulation Controls */}
-        <div className="flex items-center gap-2">
+        {/* Live Simulation Controls & QR Lookup */}
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            size="md"
+            onClick={() => setIsLookupModalOpen(true)}
+            icon={<QrCode className="w-4 h-4 text-dairy-600" />}
+            className="border-dairy-300 bg-dairy-50/50 hover:bg-dairy-100 text-dairy-800 font-bold"
+          >
+            Scan / Enter Customer QR
+          </Button>
+
           {!isRunning ? (
             <Button
               variant="primary"
@@ -228,6 +270,7 @@ export const MilkTesting: React.FC = () => {
               selectedFarmerId={selectedFarmerId}
               onSelectFarmer={setSelectedFarmerId}
               onQuickAddFarmer={() => setIsFarmerModalOpen(true)}
+              onOpenQRScanner={() => setIsLookupModalOpen(true)}
             />
 
             {/* Milk Quantity (L) */}
@@ -531,6 +574,18 @@ export const MilkTesting: React.FC = () => {
             </div>
           </div>
         </Modal>
+      )}
+
+      {/* Customer QR & Code Scanner Modal */}
+      {isLookupModalOpen && (
+        <CustomerLookupModal
+          isOpen={isLookupModalOpen}
+          onClose={() => setIsLookupModalOpen(false)}
+          onSelectCustomer={(customer) => {
+            setSelectedFarmerId(customer.farmerId);
+            showToast(`Selected ${customer.name} (Code: ${customer.customerCode || customer.farmerId})`, 'success');
+          }}
+        />
       )}
     </div>
   );

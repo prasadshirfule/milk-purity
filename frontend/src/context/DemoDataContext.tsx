@@ -35,8 +35,10 @@ interface DemoDataContextType {
   addFarmer: (farmer: Partial<Farmer>) => Promise<Farmer>;
   updateFarmer: (id: string, farmer: Partial<Farmer>) => Promise<Farmer | null>;
   deleteFarmer: (id: string) => Promise<boolean>;
+  getFarmerByCustomerCode: (code: string) => Promise<Farmer | null>;
   addMilkTest: (testData: {
     farmerId: string;
+    customerCode?: string;
     farmerName?: string;
     deviceId: string;
     quantity: number;
@@ -49,6 +51,19 @@ interface DemoDataContextType {
   triggerDeviceAction: (deviceId: string, action: 'RESTART' | 'CALIBRATE' | 'CONNECT' | 'DISCONNECT') => Promise<void>;
   refreshData: () => Promise<void>;
 }
+
+const generateDemoCustomerCode = (existingCodes: Set<string>): string => {
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  for (let i = 0; i < 1000; i++) {
+    const letter = letters[Math.floor(Math.random() * letters.length)];
+    const num = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+    const code = `${letter}${num}`;
+    if (!existingCodes.has(code)) {
+      return code;
+    }
+  }
+  return 'X9999';
+};
 
 const safeJsonParse = <T,>(key: string, fallback: T): T => {
   try {
@@ -91,7 +106,23 @@ export const DemoDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // -------------------------------------------------------------
   // DEMO MODE STATE (LocalStorage Persisted)
   // -------------------------------------------------------------
-  const [demoFarmers, setDemoFarmers] = useState<Farmer[]>(() => safeJsonParse('milk_farmers', INITIAL_FARMERS));
+  const [demoFarmers, setDemoFarmers] = useState<Farmer[]>(() => {
+    const raw = safeJsonParse('milk_farmers', INITIAL_FARMERS);
+    const existingCodes = new Set<string>();
+    return raw.map((f: Farmer) => {
+      if (f.customerCode && /^[A-Z][0-9]{4}$/.test(f.customerCode) && !existingCodes.has(f.customerCode)) {
+        existingCodes.add(f.customerCode);
+        return f;
+      }
+      const initialMatch = INITIAL_FARMERS.find((i) => i.farmerId === f.farmerId);
+      let code = initialMatch?.customerCode;
+      if (!code || existingCodes.has(code)) {
+        code = generateDemoCustomerCode(existingCodes);
+      }
+      existingCodes.add(code);
+      return { ...f, customerCode: code };
+    });
+  });
   const [demoTests, setDemoTests] = useState<MilkTest[]>(() => safeJsonParse('milk_tests', INITIAL_TESTS));
   const [demoCollections, setDemoCollections] = useState<MilkCollection[]>(() => safeJsonParse('milk_collections', INITIAL_COLLECTIONS));
   const [demoDevices, setDemoDevices] = useState<Device[]>(() => safeJsonParse('milk_devices', INITIAL_DEVICES));
@@ -295,10 +326,37 @@ export const DemoDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // MODE-AWARE CRUD OPERATIONS
   // -------------------------------------------------------------
 
+  const getFarmerByCustomerCode = async (code: string): Promise<Farmer | null> => {
+    const formatted = code.trim().toUpperCase();
+    if (isDemoMode) {
+      const found = demoFarmers.find((f) => f.customerCode?.toUpperCase() === formatted);
+      return found || null;
+    } else {
+      try {
+        const res = await api.getFarmerByCustomerCode(formatted);
+        if (res.success && res.data) {
+          return res.data;
+        }
+        // Fallback check cached connectedFarmers
+        const fallback = connectedFarmers.find((f) => f.customerCode?.toUpperCase() === formatted);
+        return fallback || null;
+      } catch (err) {
+        const fallback = connectedFarmers.find((f) => f.customerCode?.toUpperCase() === formatted);
+        return fallback || null;
+      }
+    }
+  };
+
   const addFarmer = async (data: Partial<Farmer>): Promise<Farmer> => {
     if (isDemoMode) {
+      const existingCodes = new Set(demoFarmers.map((f) => f.customerCode).filter(Boolean) as string[]);
+      const assignedCode = data.customerCode && /^[A-Z][0-9]{4}$/.test(data.customerCode.trim().toUpperCase())
+        ? data.customerCode.trim().toUpperCase()
+        : generateDemoCustomerCode(existingCodes);
+
       const newFarmer: Farmer = {
         farmerId: data.farmerId || `FMR-${1000 + demoFarmers.length + 1}`,
+        customerCode: assignedCode,
         name: data.name || 'New Farmer',
         mobile: data.mobile || '',
         village: data.village || '',
@@ -312,7 +370,7 @@ export const DemoDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         createdAt: new Date().toISOString()
       };
       setDemoFarmers((prev) => [newFarmer, ...prev]);
-      showToast(`Farmer ${newFarmer.name} (${newFarmer.farmerId}) registered successfully!`, 'success');
+      showToast(`Customer ${newFarmer.name} (Code: ${newFarmer.customerCode}) registered successfully!`, 'success');
       return newFarmer;
     } else {
       const res = await api.createFarmer(data);
@@ -322,7 +380,7 @@ export const DemoDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         throw new Error(err);
       }
       setConnectedFarmers((prev) => [res.data!, ...prev]);
-      showToast(`Farmer ${res.data.name} (${res.data.farmerId}) saved to backend!`, 'success');
+      showToast(`Customer ${res.data.name} (Code: ${res.data.customerCode || res.data.farmerId}) saved to backend!`, 'success');
       return res.data;
     }
   };
@@ -376,6 +434,7 @@ export const DemoDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const addMilkTest = async ({
     farmerId,
+    customerCode,
     farmerName,
     deviceId,
     quantity,
@@ -385,6 +444,7 @@ export const DemoDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     notes
   }: {
     farmerId: string;
+    customerCode?: string;
     farmerName?: string;
     deviceId: string;
     quantity: number;
@@ -394,6 +454,11 @@ export const DemoDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     notes?: string;
   }): Promise<{ test: MilkTest; quality: QualityResult; collection?: MilkCollection }> => {
     if (isDemoMode) {
+      const targetFarmer = demoFarmers.find((f) => f.farmerId === farmerId || (customerCode && f.customerCode === customerCode));
+      const actualFarmerId = targetFarmer?.farmerId || farmerId;
+      const actualFarmerCode = targetFarmer?.customerCode || customerCode;
+      const actualFarmerName = farmerName || targetFarmer?.name || 'Farmer';
+
       const quality = QualityCalculator.calculate(sensorReading, settings.thresholds);
       const recommendedResult = quality.result;
 
@@ -437,12 +502,12 @@ export const DemoDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
       }
 
-      const actualFarmerName = farmerName || demoFarmers.find((f) => f.farmerId === farmerId)?.name || 'Farmer';
       const testId = `TEST-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
 
       const newTest: MilkTest = {
         testId,
-        farmerId,
+        farmerId: actualFarmerId,
+        customerCode: actualFarmerCode,
         farmerName: actualFarmerName,
         deviceId,
         quantity,
@@ -479,6 +544,7 @@ export const DemoDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         createdCollection = {
           collectionId: `COL-${testId.replace('TEST-', '')}`,
           farmerId: newTest.farmerId,
+          customerCode: newTest.customerCode,
           farmerName: actualFarmerName,
           testId: newTest.testId,
           quantity: newTest.quantity,
@@ -494,7 +560,7 @@ export const DemoDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
         setDemoFarmers((prev) =>
           prev.map((f) => {
-            if (f.farmerId === farmerId) {
+            if (f.farmerId === actualFarmerId) {
               const prevSupplied = f.totalMilkSupplied || 0;
               const prevCount = f.totalCollections || 0;
               const prevScore = f.averageQualityScore || 90;
@@ -522,8 +588,8 @@ export const DemoDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           testId: newTest.testId,
           deviceId: newTest.deviceId,
           message: newTest.result === 'REJECTED'
-            ? `Milk quality screening score (${newTest.purityScore}%) below configured rejection threshold for batch ${newTest.testId} (Farmer: ${actualFarmerName}). AI Recommendation: REJECT.${newTest.warnings.length > 0 ? ` (${newTest.warnings.join('; ')})` : ''} Secondary laboratory verification advised.`
-            : `Milk quality screening score (${newTest.purityScore}%) in review range for batch ${newTest.testId} (Farmer: ${actualFarmerName}). AI Recommendation: REVIEW.${newTest.warnings.length > 0 ? ` (${newTest.warnings.join('; ')})` : ''} Monitored intake recorded.`,
+            ? `Milk quality screening score (${newTest.purityScore}%) below configured rejection threshold for batch ${newTest.testId} (Customer: ${newTest.customerCode || newTest.farmerId} — ${actualFarmerName}). AI Recommendation: REJECT.${newTest.warnings.length > 0 ? ` (${newTest.warnings.join('; ')})` : ''} Secondary laboratory verification advised.`
+            : `Milk quality screening score (${newTest.purityScore}%) in review range for batch ${newTest.testId} (Customer: ${newTest.customerCode || newTest.farmerId} — ${actualFarmerName}). AI Recommendation: REVIEW.${newTest.warnings.length > 0 ? ` (${newTest.warnings.join('; ')})` : ''} Monitored intake recorded.`,
           status: 'ACTIVE',
           timestamp: new Date().toISOString()
         };
@@ -535,6 +601,7 @@ export const DemoDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       // Connected Mode: Direct authoritative backend call
       const payload = {
         farmerId,
+        customerCode,
         farmerName,
         deviceId,
         quantity,
@@ -656,6 +723,7 @@ export const DemoDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         addFarmer,
         updateFarmer,
         deleteFarmer,
+        getFarmerByCustomerCode,
         addMilkTest,
         updateAlertStatus,
         triggerDeviceAction,

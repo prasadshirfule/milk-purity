@@ -60,6 +60,7 @@ export const createApp = (): Application => {
 
   // REST API Routes
   app.use('/api/farmers', farmerRoutes);
+  app.use('/api/customers', farmerRoutes); // customer code & lookup alias
   app.use('/api/tests', testRoutes);
   app.use('/api/sensors', sensorRoutes);
   app.use('/api/collections', collectionRoutes);

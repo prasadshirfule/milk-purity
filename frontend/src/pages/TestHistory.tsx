@@ -27,10 +27,13 @@ export const TestHistory: React.FC = () => {
   const [selectedTest, setSelectedTest] = useState<MilkTest | null>(null);
 
   const filteredTests = tests.filter((t) => {
+    const q = search.toLowerCase().trim();
     const matchesSearch =
-      t.testId.toLowerCase().includes(search.toLowerCase()) ||
-      (t.farmerName && t.farmerName.toLowerCase().includes(search.toLowerCase())) ||
-      t.farmerId.toLowerCase().includes(search.toLowerCase());
+      !q ||
+      t.testId.toLowerCase().includes(q) ||
+      (t.customerCode && t.customerCode.toLowerCase().includes(q)) ||
+      (t.farmerName && t.farmerName.toLowerCase().includes(q)) ||
+      t.farmerId.toLowerCase().includes(q);
 
     const matchesResult = resultFilter === 'ALL' || t.result === resultFilter;
     const matchesFarmer = farmerFilter === 'ALL' || t.farmerId === farmerFilter;
@@ -43,10 +46,10 @@ export const TestHistory: React.FC = () => {
   const paginatedTests = filteredTests.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const handleExportCSV = () => {
-    const headers = ['Test ID,Farmer ID,Farmer Name,Quantity (L),Temperature (C),pH,Fat (%),Density (g/mL),Conductivity (mS/cm),Score (%),Result,Date'];
+    const headers = ['Test ID,Customer Code,Farmer ID,Farmer Name,Quantity (L),Temperature (C),pH,Fat (%),Density (g/mL),Conductivity (mS/cm),Score (%),Result,Date'];
     const rows = filteredTests.map(
       (t) =>
-        `"${t.testId}","${t.farmerId}","${t.farmerName || ''}",${t.quantity},${t.temperature},${t.ph},${t.fat},${t.density},${t.conductivity},${t.qualityScore},"${t.result}","${new Date(
+        `"${t.testId}","${t.customerCode || ''}","${t.farmerId}","${t.farmerName || ''}",${t.quantity},${t.temperature},${t.ph},${t.fat},${t.density},${t.conductivity},${t.purityScore || t.qualityScore},"${t.result}","${new Date(
           t.timestamp
         ).toISOString()}"`
     );
@@ -193,11 +196,18 @@ export const TestHistory: React.FC = () => {
             )
           },
           {
-            header: 'Farmer',
+            header: 'Customer / Farmer',
             accessor: (t) => (
               <div>
-                <p className="font-bold text-slate-800">{t.farmerName}</p>
-                <p className="text-[10px] text-slate-400">{t.farmerId}</p>
+                <div className="flex items-center gap-1.5">
+                  {t.customerCode && (
+                    <span className="font-mono text-[10px] font-black text-dairy-700 bg-dairy-50 px-1 py-0.5 rounded border border-dairy-200">
+                      {t.customerCode}
+                    </span>
+                  )}
+                  <p className="font-bold text-slate-800">{t.farmerName}</p>
+                </div>
+                <p className="text-[10px] text-slate-400 font-mono">{t.farmerId}</p>
               </div>
             )
           },

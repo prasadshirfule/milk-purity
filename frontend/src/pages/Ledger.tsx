@@ -37,11 +37,14 @@ export const Ledger: React.FC = () => {
   // Filtered collections
   const filteredCollections = useMemo(() => {
     return collections.filter((c) => {
+      const q = search.toLowerCase().trim();
       const matchesSearch =
-        c.farmerName.toLowerCase().includes(search.toLowerCase()) ||
-        c.farmerId.toLowerCase().includes(search.toLowerCase()) ||
-        c.collectionId.toLowerCase().includes(search.toLowerCase()) ||
-        c.testId.toLowerCase().includes(search.toLowerCase());
+        !q ||
+        c.farmerName.toLowerCase().includes(q) ||
+        c.farmerId.toLowerCase().includes(q) ||
+        (c.customerCode && c.customerCode.toLowerCase().includes(q)) ||
+        c.collectionId.toLowerCase().includes(q) ||
+        c.testId.toLowerCase().includes(q);
 
       const matchesFarmer = selectedFarmerId === 'ALL' || c.farmerId === selectedFarmerId;
       const matchesStatus = statusFilter === 'ALL' || (c.paymentStatus || 'PAID') === statusFilter;
@@ -81,6 +84,7 @@ export const Ledger: React.FC = () => {
       string,
       {
         farmerId: string;
+        customerCode?: string;
         farmerName: string;
         village: string;
         totalLiters: number;
@@ -94,6 +98,7 @@ export const Ledger: React.FC = () => {
     farmers.forEach((f) => {
       map.set(f.farmerId, {
         farmerId: f.farmerId,
+        customerCode: f.customerCode,
         farmerName: f.name,
         village: f.village,
         totalLiters: 0,
@@ -107,6 +112,7 @@ export const Ledger: React.FC = () => {
     collections.forEach((c) => {
       const existing = map.get(c.farmerId) || {
         farmerId: c.farmerId,
+        customerCode: c.customerCode,
         farmerName: c.farmerName || c.farmerId,
         village: 'Registered',
         totalLiters: 0,
@@ -155,11 +161,11 @@ export const Ledger: React.FC = () => {
 
   const handleExportCSV = () => {
     const headers = [
-      'Collection ID,Test ID,Farmer ID,Farmer Name,Quantity (L),Estimated Fat (%),Rate (INR/L),Total Amount (INR),Payment Status,Date'
+      'Collection ID,Test ID,Customer Code,Farmer ID,Farmer Name,Quantity (L),Estimated Fat (%),Rate (INR/L),Total Amount (INR),Payment Status,Date'
     ];
     const rows = filteredCollections.map(
       (c) =>
-        `"${c.collectionId}","${c.testId}","${c.farmerId}","${c.farmerName}",${c.quantity},${c.fat},${c.rate},${c.totalAmount},"${c.paymentStatus || 'PAID'}","${new Date(
+        `"${c.collectionId}","${c.testId}","${c.customerCode || ''}","${c.farmerId}","${c.farmerName}",${c.quantity},${c.fat},${c.rate},${c.totalAmount},"${c.paymentStatus || 'PAID'}","${new Date(
           c.timestamp
         ).toISOString()}"`
     );
@@ -167,11 +173,11 @@ export const Ledger: React.FC = () => {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `farmer_ledger_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute('download', `customer_ledger_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    showToast('Farmer ledger exported as CSV', 'success');
+    showToast('Customer ledger exported as CSV', 'success');
   };
 
   return (
@@ -323,15 +329,19 @@ export const Ledger: React.FC = () => {
           keyExtractor={(f: any) => f.farmerId}
           columns={[
             {
-              header: 'Farmer ID',
-              accessor: (f: any) => <span className="font-mono font-bold text-slate-900">{f.farmerId}</span>
+              header: 'Code',
+              accessor: (f: any) => (
+                <span className="font-mono text-xs font-black text-dairy-700 bg-dairy-50 px-2 py-0.5 rounded border border-dairy-200">
+                  {f.customerCode || f.farmerId}
+                </span>
+              )
             },
             {
-              header: 'Farmer Name',
+              header: 'Customer / Farmer',
               accessor: (f: any) => (
                 <div>
                   <span className="font-bold text-slate-900 block">{f.farmerName}</span>
-                  <span className="text-[11px] text-slate-400">{f.village}</span>
+                  <span className="text-[11px] text-slate-400">{f.farmerId} • {f.village}</span>
                 </div>
               )
             },
@@ -415,10 +425,17 @@ export const Ledger: React.FC = () => {
               )
             },
             {
-              header: 'Delivering Farmer',
+              header: 'Delivering Customer',
               accessor: (c: MilkCollection) => (
                 <div>
-                  <span className="font-bold text-slate-900 block">{c.farmerName}</span>
+                  <div className="flex items-center gap-1.5">
+                    {c.customerCode && (
+                      <span className="font-mono text-[10px] font-black text-dairy-700 bg-dairy-50 px-1 rounded border border-dairy-200">
+                        {c.customerCode}
+                      </span>
+                    )}
+                    <span className="font-bold text-slate-900">{c.farmerName}</span>
+                  </div>
                   <span className="font-mono text-[11px] text-slate-500">{c.farmerId}</span>
                 </div>
               )

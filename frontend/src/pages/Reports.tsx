@@ -70,10 +70,11 @@ export const Reports: React.FC = () => {
   // Farmer performance aggregate
   const farmerData = React.useMemo(() => {
     return farmers.map((f) => {
-      const fTests = tests.filter((t) => t.farmerId === f.farmerId);
+      const fTests = tests.filter((t) => t.farmerId === f.farmerId || (t.customerCode && t.customerCode === f.customerCode));
       const pass = fTests.filter((t) => t.result !== 'REJECTED').length;
       return {
         farmerId: f.farmerId,
+        customerCode: f.customerCode,
         name: f.name,
         village: f.village,
         animalType: f.animalType,
@@ -115,14 +116,14 @@ export const Reports: React.FC = () => {
       headers = 'Month,Total Volume (L),Total Payout (INR),Avg Fat (%),Avg Purity Score (%)';
       rows = monthlyData.map((m) => `"${m.month}",${m.volume},${m.payout},${m.avgFat},${m.avgScore}`);
     } else if (activeTab === 'farmer') {
-      headers = 'Farmer ID,Farmer Name,Village,Animal Type,Total Litres,Tests Count,Pass Rate (%),Avg Purity Score (%)';
-      rows = farmerData.map((f) => `"${f.farmerId}","${f.name}","${f.village}","${f.animalType}",${f.totalLiters},${f.testsCount},${f.passRate},${f.avgScore}`);
+      headers = 'Customer Code,Farmer ID,Farmer Name,Village,Animal Type,Total Litres,Tests Count,Pass Rate (%),Avg Purity Score (%)';
+      rows = farmerData.map((f) => `"${f.customerCode || ''}","${f.farmerId}","${f.name}","${f.village}","${f.animalType}",${f.totalLiters},${f.testsCount},${f.passRate},${f.avgScore}`);
     } else if (activeTab === 'sensor') {
       headers = 'Device ID,Name,Status,Location,Firmware,Tests Conducted,Probe Health';
       rows = sensorAudit.map((s) => `"${s.deviceId}","${s.name}","${s.status}","${s.location}","${s.firmware}",${s.testsConducted},"${s.sensorHealth}"`);
     } else {
-      headers = 'Test ID,Farmer ID,Farmer Name,Volume (L),Fat (%),pH,Purity Score (%),Classification,AI Recommendation,Operator Decision,Final Result,Warnings';
-      rows = rejections.map((r) => `"${r.testId}","${r.farmerId}","${r.farmerName}",${r.quantity},${r.fat},${r.ph},${r.purityScore || r.qualityScore},"${r.classification || 'POOR'}","${r.aiRecommendation || (r.result === 'ACCEPTED' ? 'ACCEPT' : r.result === 'WARNING' ? 'REVIEW' : 'REJECT')}","${r.operatorDecision || (r.result === 'REJECTED' ? 'REJECT' : 'ACCEPT')}","${r.result}","${r.warnings.join(' | ')}"`);
+      headers = 'Test ID,Customer Code,Farmer ID,Farmer Name,Volume (L),Fat (%),pH,Purity Score (%),Classification,AI Recommendation,Operator Decision,Final Result,Warnings';
+      rows = rejections.map((r) => `"${r.testId}","${r.customerCode || ''}","${r.farmerId}","${r.farmerName}",${r.quantity},${r.fat},${r.ph},${r.purityScore || r.qualityScore},"${r.classification || 'POOR'}","${r.aiRecommendation || (r.result === 'ACCEPTED' ? 'ACCEPT' : r.result === 'WARNING' ? 'REVIEW' : 'REJECT')}","${r.operatorDecision || (r.result === 'REJECTED' ? 'REJECT' : 'ACCEPT')}","${r.result}","${r.warnings.join(' | ')}"`);
     }
 
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers, ...rows].join('\n');
@@ -321,12 +322,21 @@ export const Reports: React.FC = () => {
             keyExtractor={(f) => f.farmerId}
             columns={[
               {
-                header: 'Farmer ID',
-                accessor: (f) => <span className="font-mono font-bold text-slate-800">{f.farmerId}</span>
+                header: 'Code',
+                accessor: (f) => (
+                  <span className="font-mono text-xs font-black text-dairy-700 bg-dairy-50 px-2 py-0.5 rounded border border-dairy-200">
+                    {f.customerCode || f.farmerId}
+                  </span>
+                )
               },
               {
                 header: 'Farmer Name',
-                accessor: (f) => <span className="font-bold text-slate-900">{f.name}</span>
+                accessor: (f) => (
+                  <div>
+                    <span className="font-bold text-slate-900 block">{f.name}</span>
+                    <span className="font-mono text-[10px] text-slate-400">{f.farmerId}</span>
+                  </div>
+                )
               },
               {
                 header: 'Village',

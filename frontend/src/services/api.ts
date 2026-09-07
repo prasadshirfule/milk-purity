@@ -89,6 +89,7 @@ export const api = {
     return apiClient<Farmer[]>(`/farmers${qs}`);
   },
   getFarmerById: (id: string) => apiClient<Farmer & { tests?: MilkTest[] }>(`/farmers/${id}`),
+  getFarmerByCustomerCode: (code: string) => apiClient<Farmer & { tests?: MilkTest[] }>(`/farmers/code/${encodeURIComponent(code)}`),
   createFarmer: (farmer: Partial<Farmer>) =>
     apiClient<Farmer>('/farmers', {
       method: 'POST',
@@ -103,13 +104,14 @@ export const api = {
     apiClient<any>(`/farmers/${id}`, {
       method: 'DELETE'
     }),
-  getTests: (params?: { farmerId?: string; result?: string; date?: string; search?: string }) => {
+  getTests: (params?: { farmerId?: string; customerCode?: string; result?: string; date?: string; search?: string }) => {
     const qs = params ? '?' + new URLSearchParams(params as any).toString() : '';
     return apiClient<MilkTest[]>(`/tests${qs}`);
   },
   getTestById: (id: string) => apiClient<MilkTest>(`/tests/${id}`),
   createTest: (testData: {
     farmerId: string;
+    customerCode?: string;
     farmerName?: string;
     deviceId: string;
     quantity: number;

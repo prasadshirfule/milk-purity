@@ -35,6 +35,7 @@ export const INITIAL_SETTINGS: DairySettings = {
 export const INITIAL_FARMERS: Farmer[] = [
   {
     farmerId: 'FMR-1001',
+    customerCode: 'A1024',
     name: 'Rajesh Patil',
     mobile: '+91 98231 44521',
     village: 'Shivajinagar (Sector 2)',
@@ -50,6 +51,7 @@ export const INITIAL_FARMERS: Farmer[] = [
   },
   {
     farmerId: 'FMR-1002',
+    customerCode: 'B5831',
     name: 'Suresh Gaikwad',
     mobile: '+91 98502 11983',
     village: 'Khed Shivapur',
@@ -65,6 +67,7 @@ export const INITIAL_FARMERS: Farmer[] = [
   },
   {
     farmerId: 'FMR-1003',
+    customerCode: 'P0047',
     name: 'Anandi Devi Sharma',
     mobile: '+91 94220 88712',
     village: 'Saswad Rural',
@@ -80,6 +83,7 @@ export const INITIAL_FARMERS: Farmer[] = [
   },
   {
     farmerId: 'FMR-1004',
+    customerCode: 'M2741',
     name: 'Babanrao Shinde',
     mobile: '+91 98817 66234',
     village: 'Bhor Valley',
@@ -95,6 +99,7 @@ export const INITIAL_FARMERS: Farmer[] = [
   },
   {
     farmerId: 'FMR-1005',
+    customerCode: 'R9082',
     name: 'Rameshwar Kadam',
     mobile: '+91 97631 22901',
     village: 'Khed Shivapur',
@@ -110,6 +115,7 @@ export const INITIAL_FARMERS: Farmer[] = [
   },
   {
     farmerId: 'FMR-1006',
+    customerCode: 'K3910',
     name: 'Sunita Chavan',
     mobile: '+91 99224 55109',
     village: 'Purandar Hills',
@@ -125,6 +131,7 @@ export const INITIAL_FARMERS: Farmer[] = [
   },
   {
     farmerId: 'FMR-1007',
+    customerCode: 'S7204',
     name: 'Dnyaneshwar More',
     mobile: '+91 98901 33456',
     village: 'Saswad Rural',
@@ -140,6 +147,7 @@ export const INITIAL_FARMERS: Farmer[] = [
   },
   {
     farmerId: 'FMR-1008',
+    customerCode: 'D4195',
     name: 'Tukaram Jadhav',
     mobile: '+91 98600 77123',
     village: 'Velhe Foothills',
@@ -155,6 +163,7 @@ export const INITIAL_FARMERS: Farmer[] = [
   },
   {
     farmerId: 'FMR-1009',
+    customerCode: 'T8320',
     name: 'Balasaheb Thorat',
     mobile: '+91 97654 88990',
     village: 'Bhor Valley',
@@ -170,6 +179,7 @@ export const INITIAL_FARMERS: Farmer[] = [
   },
   {
     farmerId: 'FMR-1010',
+    customerCode: 'H6152',
     name: 'Kavita Deshmukh',
     mobile: '+91 98229 11447',
     village: 'Shivajinagar (Sector 2)',
@@ -185,6 +195,7 @@ export const INITIAL_FARMERS: Farmer[] = [
   },
   {
     farmerId: 'FMR-1011',
+    customerCode: 'V5049',
     name: 'Pandurang Bhosale',
     mobile: '+91 94235 66781',
     village: 'Velhe Foothills',
@@ -200,6 +211,7 @@ export const INITIAL_FARMERS: Farmer[] = [
   },
   {
     farmerId: 'FMR-1012',
+    customerCode: 'J9371',
     name: 'Eknath Jagtap',
     mobile: '+91 98509 44321',
     village: 'Purandar Hills',
@@ -215,6 +227,7 @@ export const INITIAL_FARMERS: Farmer[] = [
   },
   {
     farmerId: 'FMR-1013',
+    customerCode: 'N4482',
     name: 'Nitin Sonawane',
     mobile: '+91 98222 33411',
     village: 'Khed Shivapur',
@@ -230,6 +243,7 @@ export const INITIAL_FARMERS: Farmer[] = [
   },
   {
     farmerId: 'FMR-1014',
+    customerCode: 'L6218',
     name: 'Lata Jagannath Salunkhe',
     mobile: '+91 98904 55622',
     village: 'Saswad Rural',
@@ -245,6 +259,7 @@ export const INITIAL_FARMERS: Farmer[] = [
   },
   {
     farmerId: 'FMR-1015',
+    customerCode: 'G3749',
     name: 'Govind Sawant',
     mobile: '+91 97633 44100',
     village: 'Bhor Valley',
@@ -260,6 +275,7 @@ export const INITIAL_FARMERS: Farmer[] = [
   },
   {
     farmerId: 'FMR-1016',
+    customerCode: 'W8103',
     name: 'Vijay Raskar',
     mobile: '+91 98501 88992',
     village: 'Purandar Hills',

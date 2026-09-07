@@ -2,16 +2,22 @@ import { Request, Response } from 'express';
 import { dataRepository } from '../services/seedService';
 import { QualityService } from '../services/qualityService';
 import { MLService } from '../services/mlService';
+import { CustomerCodeService } from '../services/customerCodeService';
 import { ENV } from '../config/environment';
 import { IMilkTest, IMilkCollection, IAlert } from '../types';
 
 export const getTests = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { farmerId, result, date, search } = req.query;
+    const { farmerId, customerCode, result, date, search } = req.query;
     let tests = await dataRepository.getTests();
 
     if (farmerId && typeof farmerId === 'string') {
       tests = tests.filter(t => t.farmerId === farmerId);
+    }
+
+    if (customerCode && typeof customerCode === 'string') {
+      const formattedCode = customerCode.trim().toUpperCase();
+      tests = tests.filter(t => t.customerCode === formattedCode);
     }
 
     if (result && typeof result === 'string' && result !== 'ALL') {
@@ -24,7 +30,8 @@ export const getTests = async (req: Request, res: Response): Promise<void> => {
         t =>
           t.testId.toLowerCase().includes(q) ||
           (t.farmerName && t.farmerName.toLowerCase().includes(q)) ||
-          t.farmerId.toLowerCase().includes(q)
+          t.farmerId.toLowerCase().includes(q) ||
+          (t.customerCode && t.customerCode.toLowerCase().includes(q))
       );
     }
 
@@ -56,6 +63,7 @@ export const createTest = async (req: Request, res: Response): Promise<void> => 
   try {
     const {
       farmerId,
+      customerCode,
       farmerName,
       deviceId,
       quantity,
@@ -83,8 +91,46 @@ export const createTest = async (req: Request, res: Response): Promise<void> => 
       return false;
     };
 
-    if (!farmerId || typeof farmerId !== 'string' || farmerId.trim() === '') {
-      res.status(400).json({ success: false, error: 'Missing or invalid farmerId: must be a non-empty string' });
+    let farmer = null;
+    const trimmedFarmerId = typeof farmerId === 'string' ? farmerId.trim() : '';
+    const formattedCode = typeof customerCode === 'string' ? customerCode.trim().toUpperCase() : '';
+
+    if (formattedCode && !CustomerCodeService.isValidFormat(formattedCode)) {
+      res.status(400).json({
+        success: false,
+        error: `Invalid Customer Code format "${customerCode}". Expected 1 uppercase letter followed by 4 digits (e.g. A1024).`
+      });
+      return;
+    }
+
+    if (trimmedFarmerId && formattedCode) {
+      // Both provided: ensure they belong to the EXACT SAME farmer
+      farmer = await dataRepository.getFarmerById(trimmedFarmerId);
+      if (!farmer) {
+        res.status(400).json({ success: false, error: `Farmer not found with ID: ${trimmedFarmerId}` });
+        return;
+      }
+      if (farmer.customerCode && farmer.customerCode !== formattedCode) {
+        res.status(400).json({
+          success: false,
+          error: `Security validation failed: Customer code "${formattedCode}" does not match farmerId "${trimmedFarmerId}" (expected "${farmer.customerCode}").`
+        });
+        return;
+      }
+    } else if (formattedCode) {
+      farmer = await dataRepository.getFarmerByCustomerCode(formattedCode);
+      if (!farmer) {
+        res.status(404).json({ success: false, error: `Customer not found with code: ${formattedCode}` });
+        return;
+      }
+    } else if (trimmedFarmerId) {
+      farmer = await dataRepository.getFarmerById(trimmedFarmerId);
+      if (!farmer) {
+        res.status(400).json({ success: false, error: `Farmer not found with ID: ${trimmedFarmerId}` });
+        return;
+      }
+    } else {
+      res.status(400).json({ success: false, error: 'Missing farmerId or customerCode: at least one customer identifier is required' });
       return;
     }
 
@@ -192,12 +238,6 @@ export const createTest = async (req: Request, res: Response): Promise<void> => 
     }
     const decision: 'ACCEPT' | 'REJECT' = operatorDecision === 'REJECT' ? 'REJECT' : 'ACCEPT';
 
-    const farmer = await dataRepository.getFarmerById(farmerId.trim());
-    if (!farmer) {
-      res.status(400).json({ success: false, error: `Farmer not found with ID: ${farmerId.trim()}` });
-      return;
-    }
-
     const settings = await dataRepository.getSettings();
     const sensorData = {
       deviceId: (deviceId && typeof deviceId === 'string') ? deviceId.trim() : 'ESP32-MILK-001',
@@ -269,7 +309,8 @@ export const createTest = async (req: Request, res: Response): Promise<void> => 
     const newTest: IMilkTest = {
       testId,
       farmerId: farmer.farmerId,
-      farmerName: farmerName || farmer.name || 'Farmer',
+      customerCode: farmer.customerCode,
+      farmerName: farmer.name || farmerName || 'Farmer',
       deviceId: sensorData.deviceId,
       quantity: qtyNum,
       timestamp: new Date(),
