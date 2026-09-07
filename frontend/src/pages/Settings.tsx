@@ -59,7 +59,7 @@ export const Settings: React.FC = () => {
 
   const handleReset = () => {
     resetSettings();
-    showToast('Quality standards reset to statutory dairy defaults', 'info');
+    showToast('Quality thresholds reset to default reference ranges', 'info');
   };
 
   return (

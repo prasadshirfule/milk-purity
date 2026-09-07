@@ -70,7 +70,7 @@ export const INITIAL_FARMERS: Farmer[] = [
     village: 'Saswad Rural',
     address: 'Wadgaon Road, House 88',
     animalType: 'COW',
-    notes: 'Indigenous Gir cow milk with A2 beta-casein certification.',
+    notes: 'Indigenous Gir cow milk with A2 beta-casein profile.',
     status: 'ACTIVE',
     totalMilkSupplied: 1240.0,
     totalCollections: 38,

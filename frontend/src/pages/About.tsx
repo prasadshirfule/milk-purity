@@ -136,7 +136,7 @@ export const About: React.FC = () => {
             Evaluates raw multi-parameter readings against configurable dairy standards. Computes demo quality scores (0–100%), flags parameter anomalies, and generates advisory reports.
           </p>
           <div className="text-xs text-slate-600 space-y-1">
-            <p>• <strong>Grade-A / Normal:</strong> Score ≥ 90%</p>
+            <p>• <strong>Optimal / Excellent:</strong> Score ≥ 90%</p>
             <p>• <strong>Standard / Good:</strong> Score ≥ 75%</p>
             <p>• <strong>Borderline Warning:</strong> Score ≥ 60%</p>
             <p>• <strong>Anomaly / Reject:</strong> Score &lt; 60%</p>

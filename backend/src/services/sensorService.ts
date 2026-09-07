@@ -143,7 +143,7 @@ class SensorService {
   }
 
   /**
-   * Generates a realistic micro-fluctuated reading around pure milk baselines for simulation
+   * Generates a realistic micro-fluctuated reading around standard reference baselines for simulation
    */
   public generateSimulatedReading(deviceId: string = 'ESP32-MILK-001', baseLevel = 25.0): ISensorReading {
     const prev = this.getLatestReading(deviceId);

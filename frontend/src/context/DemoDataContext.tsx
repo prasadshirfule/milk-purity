@@ -112,23 +112,43 @@ export const DemoDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, [alerts]);
 
-  // Compute live dynamic dashboard summary from demo records
+  // Compute live dynamic dashboard summary strictly from today's demo records
   const summary: DashboardSummary = React.useMemo(() => {
-    const todayStr = new Date().toDateString();
+    const today = new Date();
+    const todayStr = today.toDateString();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toDateString();
+
     const todayTests = tests.filter((t) => new Date(t.timestamp).toDateString() === todayStr);
-    const activeTestList = todayTests.length > 0 ? todayTests : tests;
+    const yesterdayTests = tests.filter((t) => new Date(t.timestamp).toDateString() === yesterdayStr);
 
-    const acceptedCount = activeTestList.filter((t) => t.result === 'ACCEPTED').length;
-    const warningCount = activeTestList.filter((t) => t.result === 'WARNING').length;
-    const rejectedCount = activeTestList.filter((t) => t.result === 'REJECTED').length;
+    const acceptedCount = todayTests.filter((t) => t.result === 'ACCEPTED').length;
+    const warningCount = todayTests.filter((t) => t.result === 'WARNING').length;
+    const rejectedCount = todayTests.filter((t) => t.result === 'REJECTED').length;
 
-    const todayCollectionLiters = activeTestList
+    const todayCollectionLiters = todayTests
       .filter((t) => t.result !== 'REJECTED')
       .reduce((sum, t) => sum + (t.quantity || 0), 0);
 
+    const yesterdayCollectionLiters = yesterdayTests
+      .filter((t) => t.result !== 'REJECTED')
+      .reduce((sum, t) => sum + (t.quantity || 0), 0);
+
+    let collectionGrowthPercent = 0;
+    if (yesterdayCollectionLiters > 0) {
+      collectionGrowthPercent = Number(
+        (((todayCollectionLiters - yesterdayCollectionLiters) / yesterdayCollectionLiters) * 100).toFixed(1)
+      );
+    } else if (todayCollectionLiters > 0) {
+      collectionGrowthPercent = 100;
+    } else {
+      collectionGrowthPercent = 0;
+    }
+
     const avgPurity =
-      activeTestList.length > 0
-        ? Number((activeTestList.reduce((sum, t) => sum + (t.qualityScore || 0), 0) / activeTestList.length).toFixed(1))
+      todayTests.length > 0
+        ? Number((todayTests.reduce((sum, t) => sum + (t.qualityScore || 0), 0) / todayTests.length).toFixed(1))
         : 0;
 
     const activeFarmers = farmers.filter((f) => f.status === 'ACTIVE').length;
@@ -137,8 +157,8 @@ export const DemoDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     return {
       todayCollectionLiters: Number(todayCollectionLiters.toFixed(1)),
-      collectionGrowthPercent: 8.4,
-      totalTestsToday: activeTestList.length,
+      collectionGrowthPercent,
+      totalTestsToday: todayTests.length,
       acceptedCount,
       warningCount,
       rejectedCount,
@@ -216,7 +236,27 @@ export const DemoDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }) => {
     const quality = QualityCalculator.calculate(sensorReading, settings.thresholds);
     const recommendedResult = quality.result; // 'ACCEPTED' | 'WARNING' | 'REJECTED'
-    const decision: 'ACCEPT' | 'REJECT' = operatorDecision === 'REJECT' ? 'REJECT' : 'ACCEPT';
+
+    // Operator decision default depends on recommendedResult:
+    // ACCEPTED -> default ACCEPT
+    // WARNING -> default ACCEPT (can be rejected)
+    // REJECTED -> default REJECT (must explicitly override to ACCEPT)
+    let decision: 'ACCEPT' | 'REJECT';
+    if (operatorDecision === 'ACCEPT' || operatorDecision === 'REJECT') {
+      decision = operatorDecision;
+    } else {
+      decision = recommendedResult === 'REJECTED' ? 'REJECT' : 'ACCEPT';
+    }
+
+    const trimmedOverrideReason = typeof overrideReason === 'string' ? overrideReason.trim() : '';
+
+    // If operator overrides a REJECTED recommendation to ACCEPT, overrideReason is strictly required
+    if (recommendedResult === 'REJECTED' && decision === 'ACCEPT') {
+      if (!trimmedOverrideReason) {
+        showToast('Manual override of a rejected batch requires a non-empty justification', 'error');
+        throw new Error('Manual override of a rejected batch requires a non-empty overrideReason');
+      }
+    }
 
     let finalResult: 'ACCEPTED' | 'WARNING' | 'REJECTED' = 'REJECTED';
     let ratePerLiter = 0;
@@ -244,7 +284,6 @@ export const DemoDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     const actualFarmerName = farmerName || farmers.find((f) => f.farmerId === farmerId)?.name || 'Farmer';
     const testId = `TEST-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
-    const trimmedOverrideReason = typeof overrideReason === 'string' ? overrideReason.trim() : '';
 
     const newTest: MilkTest = {
       testId,
@@ -263,7 +302,7 @@ export const DemoDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       classification: quality.classification,
       recommendedResult,
       operatorDecision: decision,
-      overrideReason: trimmedOverrideReason || (recommendedResult === 'REJECTED' && decision === 'ACCEPT' ? 'Operator manual override logged' : undefined),
+      overrideReason: trimmedOverrideReason || undefined,
       prediction: finalResult === 'REJECTED' ? 'DEMO_ANOMALY' : 'DEMO_NORMAL',
       confidence: null,
       warnings: quality.warnings,

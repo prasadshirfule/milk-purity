@@ -36,7 +36,7 @@ describe('QualityService Parameter Assessment', () => {
 });
 
 describe('QualityService Overall Assessment & Classification', () => {
-  it('should classify normal pure milk as EXCELLENT and ACCEPTED', () => {
+  it('should classify normal reference milk as EXCELLENT and ACCEPTED', () => {
     const reading: ISensorReading = {
       deviceId: 'ESP32-MILK-001',
       timestamp: new Date().toISOString(),
@@ -245,34 +245,79 @@ describe('Workflow & Decision Logic Rules', () => {
     assert.strictEqual(price, 35.77);
   });
 
-  it('should validate manual override requirement logic', () => {
-    const recommendedResult = 'REJECTED';
-    const decision = 'ACCEPT';
-    const emptyReason = '   ';
-    const validReason = 'Laboratory re-test spot check passed';
+  // Comprehensive 8-point Decision Matrix Verification
+  const resolveDecision = (recommended: 'ACCEPTED' | 'WARNING' | 'REJECTED', operatorDecision?: string) => {
+    if (operatorDecision === 'ACCEPT' || operatorDecision === 'REJECT') {
+      return operatorDecision;
+    }
+    if (operatorDecision === undefined || operatorDecision === null) {
+      return recommended === 'REJECTED' ? 'REJECT' : 'ACCEPT';
+    }
+    return 'INVALID';
+  };
 
-    const isOverrideValid = (rec: string, dec: string, reason?: string) => {
-      if (rec === 'REJECTED' && dec === 'ACCEPT') {
-        return typeof reason === 'string' && reason.trim().length > 0;
+  const validateOverride = (
+    recommended: 'ACCEPTED' | 'WARNING' | 'REJECTED',
+    decision: string,
+    overrideReason?: string
+  ) => {
+    if (decision !== 'ACCEPT' && decision !== 'REJECT') {
+      return { valid: false, error: 'Invalid operator decision' };
+    }
+    if (recommended === 'REJECTED' && decision === 'ACCEPT') {
+      const trimmed = typeof overrideReason === 'string' ? overrideReason.trim() : '';
+      if (!trimmed) {
+        return { valid: false, error: 'Manual override requires non-empty reason' };
       }
-      return true;
-    };
+    }
+    return { valid: true };
+  };
 
-    assert.strictEqual(isOverrideValid(recommendedResult, decision, emptyReason), false);
-    assert.strictEqual(isOverrideValid(recommendedResult, decision, undefined), false);
-    assert.strictEqual(isOverrideValid(recommendedResult, decision, validReason), true);
+  it('1. ACCEPTED recommendation + no decision => defaults to ACCEPT', () => {
+    const decision = resolveDecision('ACCEPTED', undefined);
+    assert.strictEqual(decision, 'ACCEPT');
+    assert.strictEqual(validateOverride('ACCEPTED', decision).valid, true);
   });
 
-  it('should validate operator decision string whitelist', () => {
-    const isValidDecision = (d?: string) => {
-      if (d === undefined || d === null) return true;
-      return d === 'ACCEPT' || d === 'REJECT';
-    };
+  it('2. WARNING recommendation + no decision => defaults to ACCEPT', () => {
+    const decision = resolveDecision('WARNING', undefined);
+    assert.strictEqual(decision, 'ACCEPT');
+    assert.strictEqual(validateOverride('WARNING', decision).valid, true);
+  });
 
-    assert.strictEqual(isValidDecision('ACCEPT'), true);
-    assert.strictEqual(isValidDecision('REJECT'), true);
-    assert.strictEqual(isValidDecision(undefined), true);
-    assert.strictEqual(isValidDecision('MAYBE'), false);
-    assert.strictEqual(isValidDecision('accepted'), false);
+  it('3. REJECTED recommendation + no decision => defaults to REJECT', () => {
+    const decision = resolveDecision('REJECTED', undefined);
+    assert.strictEqual(decision, 'REJECT');
+    assert.strictEqual(validateOverride('REJECTED', decision).valid, true);
+  });
+
+  it('4. REJECTED recommendation + ACCEPT + empty reason => invalid', () => {
+    const res = validateOverride('REJECTED', 'ACCEPT', '');
+    assert.strictEqual(res.valid, false);
+    assert.ok(res.error?.includes('override'));
+  });
+
+  it('5. REJECTED recommendation + ACCEPT + whitespace reason => invalid', () => {
+    const res = validateOverride('REJECTED', 'ACCEPT', '    ');
+    assert.strictEqual(res.valid, false);
+    assert.ok(res.error?.includes('override'));
+  });
+
+  it('6. REJECTED recommendation + ACCEPT + valid reason => valid', () => {
+    const res = validateOverride('REJECTED', 'ACCEPT', 'Secondary spot check verified on calibrated lab meter');
+    assert.strictEqual(res.valid, true);
+  });
+
+  it('7. REJECTED recommendation + REJECT decision => valid', () => {
+    const res = validateOverride('REJECTED', 'REJECT', undefined);
+    assert.strictEqual(res.valid, true);
+  });
+
+  it('8. Invalid operator decision => invalid', () => {
+    const decision = resolveDecision('ACCEPTED', 'MAYBE');
+    assert.strictEqual(decision, 'INVALID');
+    const res = validateOverride('ACCEPTED', decision);
+    assert.strictEqual(res.valid, false);
+    assert.ok(res.error?.includes('decision'));
   });
 });

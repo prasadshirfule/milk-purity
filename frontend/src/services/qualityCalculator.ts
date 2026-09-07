@@ -68,10 +68,10 @@ export class QualityCalculator {
 
     if (fat.status === 'CRITICAL') {
       penalty += 25;
-      warnings.push(`Fat content (${reading.fat}%) below configured statutory cutoff.`);
+      warnings.push(`Estimated fat content (${reading.fat}%) below configured reference minimum.`);
     } else if (fat.status === 'LOW') {
       penalty += 10;
-      warnings.push(`Fat percentage (${reading.fat}%) below target standard.`);
+      warnings.push(`Estimated fat content (${reading.fat}%) below configured reference range.`);
     }
 
     const rawScore = Math.max(10, Math.min(100, 100 - penalty));
@@ -83,11 +83,11 @@ export class QualityCalculator {
     if (score >= thresholds.scoreExcellentMin) {
       classification = 'EXCELLENT';
       result = 'ACCEPTED';
-      recommendations.push('Parameters within Grade-A configured reference standards. Approved for intake.');
+      recommendations.push('Parameters are within the configured reference ranges. Recommended for intake.');
     } else if (score >= thresholds.scoreGoodMin) {
       classification = 'GOOD';
       result = 'ACCEPTED';
-      recommendations.push('Parameters within standard commercial reference tolerance. Approved for processing.');
+      recommendations.push('Parameters within standard commercial reference tolerance. Recommended for processing.');
     } else if (score >= thresholds.scoreSuspiciousMin) {
       classification = 'SUSPICIOUS';
       result = 'WARNING';

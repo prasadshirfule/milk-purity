@@ -98,10 +98,10 @@ export class QualityService {
     // 4. Fat evaluation
     if (fatAssessment.status === 'CRITICAL') {
       penalty += 25;
-      warnings.push(`Fat content (${reading.fat}%) below configured statutory quality threshold.`);
+      warnings.push(`Estimated fat content (${reading.fat}%) below configured reference minimum.`);
     } else if (fatAssessment.status === 'LOW') {
       penalty += 10;
-      warnings.push(`Fat percentage (${reading.fat}%) below target standard.`);
+      warnings.push(`Estimated fat content (${reading.fat}%) below configured reference range.`);
     }
 
     // 5. Temperature check
@@ -120,11 +120,11 @@ export class QualityService {
     if (score >= thresholds.scoreExcellentMin) {
       classification = 'EXCELLENT';
       result = 'ACCEPTED';
-      recommendations.push('Parameters align with configured Grade-A reference standards. Approved for intake.');
+      recommendations.push('Parameters are within the configured reference ranges. Recommended for intake.');
     } else if (score >= thresholds.scoreGoodMin) {
       classification = 'GOOD';
       result = 'ACCEPTED';
-      recommendations.push('Parameters within standard commercial reference tolerance. Approved for processing.');
+      recommendations.push('Parameters within standard commercial reference tolerance. Recommended for processing.');
     } else if (score >= thresholds.scoreSuspiciousMin) {
       classification = 'SUSPICIOUS';
       result = 'WARNING';

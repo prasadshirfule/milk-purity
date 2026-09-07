@@ -149,7 +149,7 @@ export const FarmerModal: React.FC<FarmerModalProps> = ({
             rows={2}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="e.g. Morning delivery only, A2 Gir cow certified herd..."
+            placeholder="e.g. Morning delivery only, A2 Gir cow herd..."
             className="w-full rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-800 placeholder:text-slate-400 focus:border-dairy-500 focus:outline-none focus:ring-2 focus:ring-dairy-100"
           />
         </div>
