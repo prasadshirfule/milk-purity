@@ -68,9 +68,9 @@ class DataRepository {
       animalType: data.animalType || 'COW',
       notes: data.notes || '',
       status: data.status || 'ACTIVE',
-      totalMilkSupplied: 0,
-      totalCollections: 0,
-      averageQualityScore: 0,
+      totalMilkSupplied: Number(data.totalMilkSupplied) || 0,
+      totalCollections: Number(data.totalCollections) || 0,
+      averageQualityScore: Number(data.averageQualityScore) || 0,
       createdAt: new Date(),
       updatedAt: new Date()
     };
@@ -84,7 +84,13 @@ class DataRepository {
 
   public async updateFarmer(id: string, data: Partial<IFarmer>): Promise<IFarmer | null> {
     if (getDbConnectionStatus()) {
-      await Farmer.updateOne({ farmerId: id }, { $set: data });
+      await Farmer.updateOne({ farmerId: id }, { $set: { ...data, updatedAt: new Date() } });
+      const updatedDoc = await Farmer.findOne({ farmerId: id }).lean();
+      const idx = this.farmers.findIndex(f => f.farmerId === id);
+      if (idx !== -1 && updatedDoc) {
+        this.farmers[idx] = updatedDoc as unknown as IFarmer;
+      }
+      return updatedDoc as unknown as IFarmer | null;
     }
     const idx = this.farmers.findIndex(f => f.farmerId === id);
     if (idx !== -1) {
@@ -96,7 +102,10 @@ class DataRepository {
 
   public async deleteFarmer(id: string): Promise<boolean> {
     if (getDbConnectionStatus()) {
-      await Farmer.deleteOne({ farmerId: id });
+      const res = await Farmer.deleteOne({ farmerId: id });
+      const initialLen = this.farmers.length;
+      this.farmers = this.farmers.filter(f => f.farmerId !== id);
+      return (res.deletedCount || 0) > 0 || this.farmers.length < initialLen;
     }
     const initialLen = this.farmers.length;
     this.farmers = this.farmers.filter(f => f.farmerId !== id);
@@ -124,20 +133,25 @@ class DataRepository {
     }
     this.tests.unshift(test);
 
-    // Update farmer aggregate stats
-    const farmer = await this.getFarmerById(test.farmerId);
-    if (farmer && test.result !== 'REJECTED') {
-      const prevSupplied = farmer.totalMilkSupplied || 0;
-      const prevCollections = farmer.totalCollections || 0;
-      const prevAvg = farmer.averageQualityScore || 90;
-      const newSupplied = Number((prevSupplied + test.quantity).toFixed(2));
-      const newCollections = prevCollections + 1;
-      const newAvg = Number(((prevAvg * prevCollections + test.qualityScore) / newCollections).toFixed(1));
-      await this.updateFarmer(test.farmerId, {
-        totalMilkSupplied: newSupplied,
-        totalCollections: newCollections,
-        averageQualityScore: newAvg
-      });
+    // Update farmer aggregate stats only if test was accepted/warning (NOT rejected)
+    if (test.result !== 'REJECTED') {
+      const farmer = await this.getFarmerById(test.farmerId);
+      if (farmer) {
+        const prevSupplied = Number(farmer.totalMilkSupplied) || 0;
+        const prevCollections = Number(farmer.totalCollections) || 0;
+        const prevAvg = Number(farmer.averageQualityScore) || 0;
+        const newSupplied = Number((prevSupplied + test.quantity).toFixed(2));
+        const newCollections = prevCollections + 1;
+        const newAvg = prevCollections > 0
+          ? Number(((prevAvg * prevCollections + test.qualityScore) / newCollections).toFixed(1))
+          : Number(test.qualityScore.toFixed(1));
+
+        await this.updateFarmer(test.farmerId, {
+          totalMilkSupplied: newSupplied,
+          totalCollections: newCollections,
+          averageQualityScore: newAvg
+        });
+      }
     }
 
     return test;
@@ -178,6 +192,13 @@ class DataRepository {
     const now = new Date();
     if (getDbConnectionStatus()) {
       await Device.updateOne({ deviceId: id }, { $set: { lastSeen: now, status: 'CONNECTED' } });
+      const doc = await Device.findOne({ deviceId: id }).lean();
+      const dev = this.devices.find(d => d.deviceId === id);
+      if (dev && doc) {
+        dev.lastSeen = now;
+        dev.status = 'CONNECTED';
+      }
+      return doc as unknown as IDevice | null;
     }
     const dev = this.devices.find(d => d.deviceId === id);
     if (dev) {
@@ -207,6 +228,12 @@ class DataRepository {
   public async updateAlertStatus(id: string, status: 'ACTIVE' | 'RESOLVED' | 'DISMISSED'): Promise<IAlert | null> {
     if (getDbConnectionStatus()) {
       await Alert.updateOne({ alertId: id }, { $set: { status } });
+      const doc = await Alert.findOne({ alertId: id }).lean();
+      const alert = this.alerts.find(a => a.alertId === id);
+      if (alert && doc) {
+        alert.status = status;
+      }
+      return doc as unknown as IAlert | null;
     }
     const alert = this.alerts.find(a => a.alertId === id);
     if (alert) {
@@ -231,6 +258,16 @@ class DataRepository {
       await Setting.findOneAndUpdate({}, { $set: this.settings }, { upsert: true });
     }
     return this.settings;
+  }
+
+  // Helper for test cleanup
+  public clear(): void {
+    this.farmers = [...SEED_FARMERS];
+    this.tests = [...SEED_TESTS];
+    this.collections = [...SEED_COLLECTIONS];
+    this.devices = [...SEED_DEVICES];
+    this.alerts = [...SEED_ALERTS];
+    this.settings = { ...SEED_SETTINGS };
   }
 }
 

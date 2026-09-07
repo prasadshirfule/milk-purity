@@ -57,17 +57,26 @@ export const createCollection = async (req: Request, res: Response): Promise<voi
       return;
     }
 
-    const calculatedTotal = totalAmount || Number((Number(quantity) * Number(rate)).toFixed(2));
-    const collectionId = `COL-${Date.now()}`;
+    const farmer = await dataRepository.getFarmerById(farmerId.trim());
+    if (!farmer) {
+      res.status(400).json({ success: false, error: `Farmer not found with ID: ${farmerId.trim()}` });
+      return;
+    }
+
+    const qtyNum = Number(quantity);
+    const rateNum = Number(rate);
+    const calculatedTotal = totalAmount ? Number(totalAmount) : Number((qtyNum * rateNum).toFixed(2));
+    const uniqueToken = `${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+    const collectionId = `COL-${uniqueToken}`;
 
     const newCollection: IMilkCollection = {
       collectionId,
-      farmerId,
-      farmerName: farmerName || (await dataRepository.getFarmerById(farmerId))?.name || 'Farmer',
-      testId: testId || `MANUAL-${Date.now()}`,
-      quantity: Number(quantity),
+      farmerId: farmer.farmerId,
+      farmerName: farmerName || farmer.name || 'Farmer',
+      testId: testId || `MANUAL-${uniqueToken}`,
+      quantity: qtyNum,
       fat: Number(fat || 4.2),
-      rate: Number(rate),
+      rate: rateNum,
       totalAmount: calculatedTotal,
       qualityScore: Number(qualityScore || 90),
       result: result || 'ACCEPTED',
@@ -76,6 +85,24 @@ export const createCollection = async (req: Request, res: Response): Promise<voi
     };
 
     const created = await dataRepository.addCollection(newCollection);
+
+    // Update farmer totals for manual collection if not rejected
+    if (newCollection.result !== 'REJECTED') {
+      const prevSupplied = Number(farmer.totalMilkSupplied) || 0;
+      const prevCollections = Number(farmer.totalCollections) || 0;
+      const prevAvg = Number(farmer.averageQualityScore) || 0;
+      const newSupplied = Number((prevSupplied + newCollection.quantity).toFixed(2));
+      const newCollections = prevCollections + 1;
+      const newAvg = prevCollections > 0
+        ? Number(((prevAvg * prevCollections + newCollection.qualityScore) / newCollections).toFixed(1))
+        : Number(newCollection.qualityScore.toFixed(1));
+      await dataRepository.updateFarmer(farmer.farmerId, {
+        totalMilkSupplied: newSupplied,
+        totalCollections: newCollections,
+        averageQualityScore: newAvg
+      });
+    }
+
     res.status(201).json({ success: true, data: created });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });

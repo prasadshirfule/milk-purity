@@ -8,20 +8,41 @@ export const getDashboardSummary = async (req: Request, res: Response): Promise<
     const devices = await dataRepository.getDevices();
     const alerts = await dataRepository.getAlerts();
 
-    const todayStr = new Date().toDateString();
+    const now = new Date();
+    const todayStr = now.toDateString();
+
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toDateString();
+
     const todayTests = tests.filter(t => new Date(t.timestamp).toDateString() === todayStr);
+    const yesterdayTests = tests.filter(t => new Date(t.timestamp).toDateString() === yesterdayStr);
 
     const totalVolumeToday = todayTests
+      .filter(t => t.result !== 'REJECTED')
+      .reduce((sum, t) => sum + t.quantity, 0);
+
+    const totalVolumeYesterday = yesterdayTests
       .filter(t => t.result !== 'REJECTED')
       .reduce((sum, t) => sum + t.quantity, 0);
 
     const acceptedCount = todayTests.filter(t => t.result === 'ACCEPTED').length;
     const warningCount = todayTests.filter(t => t.result === 'WARNING').length;
     const rejectedCount = todayTests.filter(t => t.result === 'REJECTED').length;
+    const totalTestsToday = todayTests.length;
 
-    const avgPurity = todayTests.length > 0
-      ? Number((todayTests.reduce((sum, t) => sum + t.qualityScore, 0) / todayTests.length).toFixed(1))
-      : 93.4;
+    const avgPurity = totalTestsToday > 0
+      ? Number((todayTests.reduce((sum, t) => sum + t.qualityScore, 0) / totalTestsToday).toFixed(1))
+      : 0;
+
+    let collectionGrowthPercent = 0;
+    if (totalVolumeYesterday > 0) {
+      collectionGrowthPercent = Number((((totalVolumeToday - totalVolumeYesterday) / totalVolumeYesterday) * 100).toFixed(1));
+    } else if (totalVolumeYesterday === 0 && totalVolumeToday > 0) {
+      collectionGrowthPercent = 100;
+    } else {
+      collectionGrowthPercent = 0;
+    }
 
     const activeFarmersCount = farmers.filter(f => f.status === 'ACTIVE').length;
     const primaryDevice = devices.find(d => d.deviceId === 'ESP32-MILK-001') || devices[0];
@@ -30,12 +51,12 @@ export const getDashboardSummary = async (req: Request, res: Response): Promise<
     res.json({
       success: true,
       data: {
-        todayCollectionLiters: Number(totalVolumeToday.toFixed(1)) || 220.5,
-        collectionGrowthPercent: 8.4,
-        totalTestsToday: todayTests.length || 5,
-        acceptedCount: acceptedCount || 4,
-        warningCount: warningCount || 1,
-        rejectedCount: rejectedCount || 1,
+        todayCollectionLiters: Number(totalVolumeToday.toFixed(1)),
+        collectionGrowthPercent,
+        totalTestsToday,
+        acceptedCount,
+        warningCount,
+        rejectedCount,
         averagePurityScore: avgPurity,
         activeFarmers: activeFarmersCount,
         deviceStatus: primaryDevice ? primaryDevice.status : 'CONNECTED',
@@ -68,12 +89,12 @@ export const getCollectionTrend = async (req: Request, res: Response): Promise<v
       const amount = dayCollections.reduce((sum, c) => sum + c.totalAmount, 0);
       const avgFat = dayCollections.length > 0
         ? Number((dayCollections.reduce((sum, c) => sum + c.fat, 0) / dayCollections.length).toFixed(2))
-        : 4.3;
+        : 0;
 
       timelineData.push({
         date: dateStr,
-        liters: liters > 0 ? Number(liters.toFixed(1)) : Number((180 + Math.random() * 80).toFixed(1)),
-        amount: amount > 0 ? Number(amount.toFixed(2)) : Number((7500 + Math.random() * 3200).toFixed(2)),
+        liters: Number(liters.toFixed(1)),
+        amount: Number(amount.toFixed(2)),
         avgFat
       });
     }
@@ -89,12 +110,12 @@ export const getQualityAnalytics = async (req: Request, res: Response): Promise<
     const tests = await dataRepository.getTests();
     const settings = await dataRepository.getSettings();
 
-    const count = tests.length || 1;
-    const avgPh = Number((tests.reduce((s, t) => s + t.ph, 0) / count).toFixed(2));
-    const avgFat = Number((tests.reduce((s, t) => s + t.fat, 0) / count).toFixed(2));
-    const avgDensity = Number((tests.reduce((s, t) => s + t.density, 0) / count).toFixed(4));
-    const avgConductivity = Number((tests.reduce((s, t) => s + t.conductivity, 0) / count).toFixed(2));
-    const avgTemp = Number((tests.reduce((s, t) => s + t.temperature, 0) / count).toFixed(1));
+    const count = tests.length;
+    const avgPh = count > 0 ? Number((tests.reduce((s, t) => s + t.ph, 0) / count).toFixed(2)) : 0;
+    const avgFat = count > 0 ? Number((tests.reduce((s, t) => s + t.fat, 0) / count).toFixed(2)) : 0;
+    const avgDensity = count > 0 ? Number((tests.reduce((s, t) => s + t.density, 0) / count).toFixed(4)) : 0;
+    const avgConductivity = count > 0 ? Number((tests.reduce((s, t) => s + t.conductivity, 0) / count).toFixed(2)) : 0;
+    const avgTemp = count > 0 ? Number((tests.reduce((s, t) => s + t.temperature, 0) / count).toFixed(1)) : 0;
 
     const distribution = [
       { classification: 'EXCELLENT', count: tests.filter(t => t.classification === 'EXCELLENT').length },

@@ -192,6 +192,12 @@ export const createTest = async (req: Request, res: Response): Promise<void> => 
     }
     const decision: 'ACCEPT' | 'REJECT' = operatorDecision === 'REJECT' ? 'REJECT' : 'ACCEPT';
 
+    const farmer = await dataRepository.getFarmerById(farmerId.trim());
+    if (!farmer) {
+      res.status(400).json({ success: false, error: `Farmer not found with ID: ${farmerId.trim()}` });
+      return;
+    }
+
     const settings = await dataRepository.getSettings();
     const sensorData = {
       deviceId: (deviceId && typeof deviceId === 'string') ? deviceId.trim() : 'ESP32-MILK-001',
@@ -236,7 +242,11 @@ export const createTest = async (req: Request, res: Response): Promise<void> => 
       if (recommendedResult === 'REJECTED') {
         // Operator manually overrides a rejected recommendation
         finalResult = 'ACCEPTED';
-        ratePerLiter = QualityService.calculatePricing(sensorData.fat, qualityEval.score, settings.thresholds);
+        ratePerLiter = QualityService.calculatePricing(
+          sensorData.fat,
+          Math.max(settings.thresholds.scoreSuspiciousMin, qualityEval.score),
+          settings.thresholds
+        );
         totalAmount = Number((qtyNum * ratePerLiter).toFixed(2));
       } else if (recommendedResult === 'WARNING') {
         finalResult = 'WARNING';
@@ -249,12 +259,14 @@ export const createTest = async (req: Request, res: Response): Promise<void> => 
       }
     }
 
-    const testId = `TEST-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+    const uniqueToken = `${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+    const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const testId = `TEST-${datePart}-${uniqueToken}`;
 
     const newTest: IMilkTest = {
       testId,
-      farmerId: farmerId.trim(),
-      farmerName: farmerName || (await dataRepository.getFarmerById(farmerId.trim()))?.name || 'Farmer',
+      farmerId: farmer.farmerId,
+      farmerName: farmerName || farmer.name || 'Farmer',
       deviceId: sensorData.deviceId,
       quantity: qtyNum,
       timestamp: new Date(),
@@ -284,7 +296,7 @@ export const createTest = async (req: Request, res: Response): Promise<void> => 
     let createdCollection: IMilkCollection | undefined;
     if (savedTest.result !== 'REJECTED') {
       createdCollection = {
-        collectionId: `COL-${testId.replace('TEST-', '')}`,
+        collectionId: `COL-${uniqueToken}`,
         farmerId: savedTest.farmerId,
         farmerName: savedTest.farmerName || 'Farmer',
         testId: savedTest.testId,
@@ -302,15 +314,29 @@ export const createTest = async (req: Request, res: Response): Promise<void> => 
 
     // 5. Generate alert if anomalous or rejected
     if (savedTest.result === 'REJECTED' || savedTest.result === 'WARNING' || decision === 'REJECT') {
+      let alertType: 'HIGH_CONDUCTIVITY' | 'ABNORMAL_PH' | 'ABNORMAL_DENSITY' | 'SUSPICIOUS_MILK' = 'SUSPICIOUS_MILK';
+      if (savedTest.conductivity > 6.0) {
+        alertType = 'HIGH_CONDUCTIVITY';
+      } else if (savedTest.ph < 6.5 || savedTest.ph > 6.85) {
+        alertType = 'ABNORMAL_PH';
+      } else if (savedTest.density < 1.026 || savedTest.density > 1.034) {
+        alertType = 'ABNORMAL_DENSITY';
+      }
+
+      const warningText = savedTest.warnings.length > 0 ? ` (${savedTest.warnings.join('; ')})` : '';
+      const alertMsg = savedTest.result === 'REJECTED'
+        ? `Parameter anomaly detected exceeding rejection thresholds for batch ${savedTest.testId}${warningText}. Secondary laboratory verification advised.`
+        : `Parameter variance detected outside reference ranges for batch ${savedTest.testId}${warningText}. Monitored intake recorded.`;
+
       const alert: IAlert = {
-        alertId: `ALT-${Date.now()}`,
-        type: savedTest.conductivity > 6.0 ? 'HIGH_CONDUCTIVITY' : savedTest.ph < 6.5 ? 'ABNORMAL_PH' : 'SUSPICIOUS_MILK',
+        alertId: `ALT-${uniqueToken}`,
+        type: alertType,
         severity: savedTest.result === 'REJECTED' ? 'CRITICAL' : 'WARNING',
         farmerId: savedTest.farmerId,
         farmerName: savedTest.farmerName,
         testId: savedTest.testId,
         deviceId: savedTest.deviceId,
-        message: `Batch ${savedTest.testId} outcome: ${savedTest.result} (Operator: ${decision}). Score ${savedTest.qualityScore}%. ${savedTest.warnings.join(', ')}`,
+        message: alertMsg,
         status: 'ACTIVE',
         timestamp: new Date()
       };
