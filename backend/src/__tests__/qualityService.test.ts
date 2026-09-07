@@ -380,7 +380,7 @@ describe('AI/ML Milk Purity Scoring & Recommendations', () => {
     assert.strictEqual(res.classification, 'REJECT');
   });
 
-  it('4. Score cannot be below 0 or exceed 100', () => {
+  it('4. Score cannot be below 0 or exceed 100 and is rounded to 1 decimal place', () => {
     const extremeBadReading: ISensorReading = {
       deviceId: 'ESP32-MILK-001',
       timestamp: new Date().toISOString(),
@@ -395,5 +395,31 @@ describe('AI/ML Milk Purity Scoring & Recommendations', () => {
     const res = QualityService.calculateQuality(extremeBadReading, DEFAULT_THRESHOLDS);
     assert.ok(res.purityScore >= 0);
     assert.ok(res.purityScore <= 100);
+    assert.strictEqual(res.purityScore, Number(res.purityScore.toFixed(1)));
+  });
+
+  it('5. MLService fallback generates authoritative score identical to QualityService without divergence', async () => {
+    const { MLService } = await import('../services/mlService');
+    const reading: ISensorReading = {
+      deviceId: 'ESP32-MILK-001',
+      timestamp: new Date().toISOString(),
+      temperature: 24.0,
+      ph: 6.65,
+      fat: 4.5,
+      density: 1.029,
+      conductivity: 5.0,
+      milkLevel: 25.0
+    };
+
+    const qualityEval = QualityService.calculateQuality(reading, DEFAULT_THRESHOLDS);
+    const mlEval = await MLService.predictPurity(reading);
+
+    // Fallback must produce identical authoritative purity score
+    assert.strictEqual(mlEval.purityScore, qualityEval.purityScore);
+    assert.strictEqual(mlEval.score, qualityEval.score);
+    assert.strictEqual(mlEval.aiRecommendation, qualityEval.aiRecommendation);
+    assert.strictEqual(mlEval.modelVersion, 'screening-baseline-v1');
+    assert.strictEqual(mlEval.confidence, null);
   });
 });
+

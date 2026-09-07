@@ -210,24 +210,27 @@ export const createTest = async (req: Request, res: Response): Promise<void> => 
       milkLevel: levelNum
     };
 
-    // 1. Calculate rule-based quality evaluation
+    // 1. Query quality and ML service evaluation
+    const mlPrediction = await MLService.predictPurity(sensorData, settings.thresholds);
     const qualityEval = QualityService.calculateQuality(sensorData, settings.thresholds);
-    const recommendedResult = qualityEval.result; // 'ACCEPTED' | 'WARNING' | 'REJECTED'
+
+    // Single authoritative purity score (0-100, 1 decimal place)
+    const authoritativePurityScore = Number(mlPrediction.purityScore.toFixed(1));
+    const authoritativeAiRec: 'ACCEPT' | 'REVIEW' | 'REJECT' = mlPrediction.aiRecommendation;
+    const recommendedResult: 'ACCEPTED' | 'WARNING' | 'REJECTED' =
+      authoritativeAiRec === 'ACCEPT' ? 'ACCEPTED' : authoritativeAiRec === 'REVIEW' ? 'WARNING' : 'REJECTED';
 
     // 2. Enforce overrideReason if operator is accepting a rejected recommendation
     const trimmedOverrideReason = typeof overrideReason === 'string' ? overrideReason.trim() : '';
-    if (recommendedResult === 'REJECTED' && decision === 'ACCEPT') {
+    if (authoritativeAiRec === 'REJECT' && decision === 'ACCEPT') {
       if (!trimmedOverrideReason) {
         res.status(400).json({
           success: false,
-          error: 'Manual override requires a non-empty overrideReason when accepting a batch with recommendedResult REJECTED'
+          error: 'Manual override requires a non-empty overrideReason when accepting a batch with AI recommendation REJECT'
         });
         return;
       }
     }
-
-    // 3. Query ML service prediction (mock / live)
-    const mlPrediction = await MLService.predictPurity(sensorData);
 
     let finalResult: 'ACCEPTED' | 'WARNING' | 'REJECTED' = 'REJECTED';
     let ratePerLiter = 0;
@@ -239,22 +242,22 @@ export const createTest = async (req: Request, res: Response): Promise<void> => 
       totalAmount = 0;
     } else {
       // Operator decided to ACCEPT
-      if (recommendedResult === 'REJECTED') {
+      if (authoritativeAiRec === 'REJECT') {
         // Operator manually overrides a rejected recommendation
         finalResult = 'ACCEPTED';
         ratePerLiter = QualityService.calculatePricing(
           sensorData.fat,
-          Math.max(settings.thresholds.scoreSuspiciousMin, qualityEval.score),
+          Math.max(settings.thresholds.scoreSuspiciousMin, authoritativePurityScore),
           settings.thresholds
         );
         totalAmount = Number((qtyNum * ratePerLiter).toFixed(2));
-      } else if (recommendedResult === 'WARNING') {
+      } else if (authoritativeAiRec === 'REVIEW') {
         finalResult = 'WARNING';
-        ratePerLiter = QualityService.calculatePricing(sensorData.fat, qualityEval.score, settings.thresholds);
+        ratePerLiter = QualityService.calculatePricing(sensorData.fat, authoritativePurityScore, settings.thresholds);
         totalAmount = Number((qtyNum * ratePerLiter).toFixed(2));
       } else {
         finalResult = 'ACCEPTED';
-        ratePerLiter = QualityService.calculatePricing(sensorData.fat, qualityEval.score, settings.thresholds);
+        ratePerLiter = QualityService.calculatePricing(sensorData.fat, authoritativePurityScore, settings.thresholds);
         totalAmount = Number((qtyNum * ratePerLiter).toFixed(2));
       }
     }
@@ -276,18 +279,18 @@ export const createTest = async (req: Request, res: Response): Promise<void> => 
       density: sensorData.density,
       conductivity: sensorData.conductivity,
       milkLevel: sensorData.milkLevel,
-      qualityScore: qualityEval.score,
-      purityScore: qualityEval.purityScore,
+      qualityScore: authoritativePurityScore,
+      purityScore: authoritativePurityScore,
       classification: qualityEval.classification,
       recommendedResult,
-      aiRecommendation: qualityEval.aiRecommendation,
+      aiRecommendation: authoritativeAiRec,
       operatorDecision: decision,
       overrideReason: trimmedOverrideReason || undefined,
-      modelVersion: mlPrediction.modelVersion || qualityEval.modelVersion || 'screening-baseline-v1',
-      scoreExplanation: qualityEval.scoreExplanation || mlPrediction.scoreExplanation || [],
+      modelVersion: mlPrediction.modelVersion || 'screening-baseline-v1',
+      scoreExplanation: mlPrediction.scoreExplanation.length > 0 ? mlPrediction.scoreExplanation : qualityEval.scoreExplanation,
       prediction: mlPrediction.prediction,
-      confidence: mlPrediction.confidence,
-      warnings: [...qualityEval.warnings, ...mlPrediction.warnings],
+      confidence: null,
+      warnings: Array.from(new Set([...qualityEval.warnings, ...mlPrediction.warnings])),
       result: finalResult,
       ratePerLiter,
       totalAmount,

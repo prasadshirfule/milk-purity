@@ -1,5 +1,6 @@
-import { ISensorReading } from '../types';
+import { ISensorReading, IThresholdSettings } from '../types';
 import { ENV } from '../config/environment';
+import { QualityService } from './qualityService';
 
 export interface IMLResponse {
   prediction: string;
@@ -16,9 +17,12 @@ export interface IMLResponse {
 
 export class MLService {
   /**
-   * Calls the FastAPI microservice or falls back to standard heuristic calculation
+   * Calls the FastAPI microservice or falls back to standard baseline calculation
    */
-  public static async predictPurity(reading: ISensorReading): Promise<IMLResponse> {
+  public static async predictPurity(
+    reading: ISensorReading,
+    thresholds?: IThresholdSettings
+  ): Promise<IMLResponse> {
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 2000); // Fast 2s timeout
@@ -34,41 +38,40 @@ export class MLService {
 
       if (response.ok) {
         const data = await response.json();
-        const score = data.purity_score ?? data.score ?? 92.0;
+        const rawScore = Number(data.purity_score ?? data.score ?? 92.0);
+        const score = Number(Math.max(0, Math.min(100, Number.isFinite(rawScore) ? rawScore : 92.0)).toFixed(1));
         return {
-          prediction: data.prediction || 'DEMO_NORMAL',
-          confidence: data.confidence ?? null,
+          prediction: data.prediction || (score >= 75 ? 'DEMO_NORMAL' : 'DEMO_ANOMALY'),
+          confidence: null, // neutral null per scientific honesty guidelines
           score,
           purityScore: score,
-          aiRecommendation: data.ai_recommendation || (score >= 75 ? 'ACCEPT' : score >= 60 ? 'REVIEW' : 'REJECT'),
+          aiRecommendation: (data.ai_recommendation as 'ACCEPT' | 'REVIEW' | 'REJECT') || (score >= 75 ? 'ACCEPT' : score >= 60 ? 'REVIEW' : 'REJECT'),
           modelVersion: data.model_version || 'screening-baseline-v1',
-          scoreExplanation: data.score_explanation || [],
-          warnings: data.warnings || [],
-          isMock: data.is_mock ?? true,
-          disclaimer: 'Demo/engineering assessment only. Not a certified laboratory assay.'
+          scoreExplanation: Array.isArray(data.score_explanation) ? data.score_explanation : [],
+          warnings: Array.isArray(data.warnings) ? data.warnings : [],
+          isMock: true,
+          disclaimer: 'Milk Purity Score is an automated quality-screening estimate based on measured parameters. It is not a substitute for laboratory adulteration testing.'
         };
       }
     } catch (err) {
-      // Python ML Service offline or unreachable -> use heuristic demonstration
+      // Python ML Service offline or unreachable -> use baseline screening calculation
     }
 
-    // Baseline screening assessment fallback
-    const isAnomaly = reading.ph < 6.4 || reading.ph > 6.9 || reading.conductivity > 6.2 || reading.density < 1.026;
-    const score = isAnomaly ? 54.5 : 94.8;
+    // Baseline screening assessment fallback using QualityService directly
+    const qualityEval = QualityService.calculateQuality(reading, thresholds);
     
     return {
-      prediction: isAnomaly ? 'DEMO_ANOMALY' : 'DEMO_NORMAL',
-      confidence: null, // neutral null for demo mode
-      score,
-      purityScore: score,
-      aiRecommendation: isAnomaly ? 'REJECT' : 'ACCEPT',
+      prediction: qualityEval.aiRecommendation === 'ACCEPT' ? 'DEMO_NORMAL' : 'DEMO_ANOMALY',
+      confidence: null,
+      score: qualityEval.purityScore,
+      purityScore: qualityEval.purityScore,
+      aiRecommendation: qualityEval.aiRecommendation,
       modelVersion: 'screening-baseline-v1',
-      scoreExplanation: isAnomaly
-        ? ['⚠ Parameter anomaly detected outside baseline bounds']
-        : ['✓ Parameters within standard baseline bounds'],
-      warnings: isAnomaly ? ['Parameter anomaly detected. Requires secondary laboratory verification.'] : [],
+      scoreExplanation: qualityEval.scoreExplanation,
+      warnings: qualityEval.warnings,
       isMock: true,
-      disclaimer: 'Demo/engineering assessment only. Not a certified laboratory assay.'
+      disclaimer: 'Milk Purity Score is an automated quality-screening estimate based on measured parameters. It is not a substitute for laboratory adulteration testing.'
     };
   }
 }
+

@@ -70,7 +70,7 @@ export const FarmerDetails: React.FC = () => {
   const chartData = farmerTests.slice(0, 10).reverse().map((t, idx) => ({
     label: `Batch ${idx + 1}`,
     liters: t.quantity,
-    purity: t.qualityScore,
+    purity: t.purityScore || t.qualityScore,
     fat: t.fat
   }));
 
@@ -245,7 +245,7 @@ export const FarmerDetails: React.FC = () => {
               <Line
                 type="monotone"
                 dataKey="purity"
-                name="Quality Score (%)"
+                name="Milk Purity Score (%)"
                 stroke="#0284c7"
                 strokeWidth={2.5}
                 dot={{ r: 4 }}
@@ -292,7 +292,7 @@ export const FarmerDetails: React.FC = () => {
             },
             {
               header: 'Purity Score',
-              accessor: (t) => <span className="font-mono font-bold text-slate-900">{t.qualityScore}%</span>
+              accessor: (t) => <span className="font-mono font-bold text-slate-900">{t.purityScore || t.qualityScore}%</span>
             },
             {
               header: 'Result',
