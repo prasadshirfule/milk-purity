@@ -34,7 +34,7 @@ export const getLatestReading = async (req: Request, res: Response): Promise<voi
     const deviceId = (req.query.deviceId as string) || 'ESP32-MILK-001';
     const reading = sensorService.getLatestReading(deviceId);
     const settings = await dataRepository.getSettings();
-    const qualityEval = QualityService.calculateQuality(reading, settings.thresholds);
+    const qualityEval = reading ? QualityService.calculateQuality(reading, settings.thresholds) : null;
 
     res.json({
       success: true,

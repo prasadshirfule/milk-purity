@@ -4,7 +4,10 @@ export type QualityClassification = 'EXCELLENT' | 'GOOD' | 'SUSPICIOUS' | 'REJEC
 export type ParameterStatus = 'NORMAL' | 'LOW' | 'HIGH' | 'CRITICAL';
 export type AlertSeverity = 'INFO' | 'WARNING' | 'CRITICAL';
 export type AlertStatus = 'ACTIVE' | 'RESOLVED' | 'DISMISSED';
-export type DeviceStatus = 'CONNECTED' | 'DISCONNECTED' | 'ERROR' | 'OFFLINE';
+export type DeviceStatus = 'ONLINE' | 'OFFLINE' | 'WARNING' | 'UNKNOWN' | 'CONNECTED' | 'DISCONNECTED' | 'ERROR';
+export type DeviceType = 'ESP32_STATION' | 'ESP32_PORTABLE' | 'LAB_ANALYZER' | 'SIMULATOR' | 'ESP32_MILK_ANALYZER' | 'ESP32_INTAKE_DOCK' | 'LAB_BENCHMARK_PROBE';
+export type ConnectionMode = 'DEMO' | 'CONNECTED' | 'REST_POLLING' | 'WEBSOCKET_READY' | 'MQTT_READY';
+export type CalibrationStatus = 'CALIBRATED' | 'DUE' | 'OVERDUE' | 'UNKNOWN';
 
 export type AlertType =
   | 'HIGH_CONDUCTIVITY'
@@ -43,6 +46,10 @@ export interface ISensorReading {
   density: number; // g/cm³ or g/mL
   conductivity: number; // mS/cm
   milkLevel: number; // Litres
+  firmwareVersion?: string;
+  sequenceNumber?: number;
+  batteryLevel?: number;
+  isDemo?: boolean;
 }
 
 export interface IParameterAssessment {
@@ -86,6 +93,8 @@ export interface IMilkTest {
   deviceId: string;
   quantity: number; // Litres
   timestamp: Date;
+  sensorTimestamp?: Date | string;
+  testTimestamp?: Date | string;
   temperature: number;
   ph: number;
   fat: number;
@@ -162,7 +171,14 @@ export type AuditAction =
   | 'CREATE_COLLECTION'
   | 'PRINT_RECEIPT'
   | 'UPDATE_SETTINGS'
-  | 'USER_MANAGEMENT';
+  | 'USER_MANAGEMENT'
+  | 'DEVICE_REGISTERED'
+  | 'DEVICE_UPDATED'
+  | 'DEVICE_DELETED'
+  | 'DEVICE_CONNECTED'
+  | 'DEVICE_OFFLINE'
+  | 'TELEMETRY_RECEIVED'
+  | 'SENSOR_TEST_CAPTURED';
 
 export interface IAuditLog {
   auditId: string;
@@ -190,14 +206,22 @@ export interface IDeviceSensorHealth {
 export interface IDevice {
   deviceId: string;
   name: string;
+  deviceType?: DeviceType;
   status: DeviceStatus;
+  connectionMode?: ConnectionMode;
   firmwareVersion: string;
+  apiKey?: string;
   ipAddress?: string;
   macAddress?: string;
-  lastSeen: Date;
+  lastSeen?: Date;
+  calibrationStatus?: CalibrationStatus;
+  lastCalibrationDate?: Date;
+  calibrationDueDate?: Date;
   sensors: IDeviceSensorHealth;
   location?: string;
+  latestReading?: ISensorReading;
   createdAt: Date;
+  updatedAt?: Date;
 }
 
 export interface IAlert {

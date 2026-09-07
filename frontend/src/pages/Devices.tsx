@@ -1,17 +1,109 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useDemoData } from '../context/DemoDataContext';
+import { useAuth } from '../context/AuthContext';
 import { DeviceCard } from '../components/devices/DeviceCard';
+import { LiveSensorPanel } from '../components/devices/LiveSensorPanel';
 import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
-import { Cpu, Wifi, Radio, Code2, Plus } from 'lucide-react';
+import { Input } from '../components/common/Input';
+import { Cpu, Wifi, Radio, Code2, Plus, RefreshCw, Info, AlertTriangle } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
+import { api } from '../services/api';
+import { Device, SensorReading } from '../types';
 
 export const Devices: React.FC = () => {
-  const { devices, triggerDeviceAction } = useDemoData();
+  const { devices, triggerDeviceAction, isDemoMode, refreshData } = useDemoData();
+  const { user, hasRole } = useAuth();
   const { showToast } = useToast();
-  const [isCodeModalOpen, setIsCodeModalOpen] = useState(false);
 
-  const connectedCount = devices.filter((d) => d.status === 'CONNECTED').length;
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string>('ESP32-DEMO-001');
+  const [liveReading, setLiveReading] = useState<SensorReading | null>(null);
+  const [isCodeModalOpen, setIsCodeModalOpen] = useState(false);
+  const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
+
+  // New Device Form State
+  const [newDeviceId, setNewDeviceId] = useState('');
+  const [newDeviceName, setNewDeviceName] = useState('');
+  const [newDeviceLocation, setNewDeviceLocation] = useState('Intake Bay 1');
+  const [newDeviceType, setNewDeviceType] = useState('ESP32_MILK_ANALYZER');
+  const [newConnectionMode, setNewConnectionMode] = useState('REST_POLLING');
+
+  // Load telemetry for selected device
+  const fetchTelemetry = async (devId: string) => {
+    try {
+      if (isDemoMode) {
+        const res = await api.simulateSensorTick(devId);
+        if (res.success && res.data) {
+          setLiveReading(res.data);
+        }
+      } else {
+        const res = await api.getLatestTelemetry(devId);
+        if (res.success && res.data) {
+          setLiveReading(res.data);
+        }
+      }
+    } catch (err) {
+      // Ignore polling hiccups
+    }
+  };
+
+  useEffect(() => {
+    fetchTelemetry(selectedDeviceId);
+    const interval = setInterval(() => {
+      fetchTelemetry(selectedDeviceId);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [selectedDeviceId, isDemoMode]);
+
+  const handleSimulateTick = async () => {
+    try {
+      const res = await api.simulateSensorTick(selectedDeviceId);
+      if (res.success && res.data) {
+        setLiveReading(res.data);
+        showToast('Simulated micro-fluctuation generated', 'info');
+      }
+    } catch (e) {
+      showToast('Simulation trigger failed', 'error');
+    }
+  };
+
+  const handleRegisterDevice = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newDeviceId.trim() || !newDeviceName.trim()) {
+      showToast('Device ID and Device Name are required', 'error');
+      return;
+    }
+
+    setIsRegistering(true);
+    try {
+      const res = await api.registerDevice({
+        deviceId: newDeviceId.trim().toUpperCase(),
+        name: newDeviceName.trim(),
+        location: newDeviceLocation.trim(),
+        deviceType: newDeviceType as any,
+        connectionMode: newConnectionMode as any,
+        status: 'UNKNOWN'
+      });
+
+      if (res.success) {
+        showToast(`Device '${newDeviceId}' registered successfully!`, 'success');
+        setIsRegisterModalOpen(false);
+        setNewDeviceId('');
+        setNewDeviceName('');
+        refreshData();
+      } else {
+        showToast(res.error || 'Failed to register device', 'error');
+      }
+    } catch (err: any) {
+      showToast(err.message || 'Registration failed', 'error');
+    } finally {
+      setIsRegistering(false);
+    }
+  };
+
+  const activeCount = devices.filter((d) => d.status === 'ONLINE' || d.status === 'CONNECTED').length;
+  const selectedDevice = devices.find((d) => d.deviceId === selectedDeviceId) || devices[0];
 
   return (
     <div className="space-y-6 pb-12">
@@ -19,10 +111,10 @@ export const Devices: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">
-            IoT Sensor Hardware & Analyzer Nodes
+            ESP32 Sensor Hardware & Analyzer Nodes
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Real-time status of connected ESP32 testing docks and probe sensors
+            Real-time telemetry and management of dock testing hardware & multi-probe analyzer nodes
           </p>
         </div>
 
@@ -33,37 +125,71 @@ export const Devices: React.FC = () => {
             onClick={() => setIsCodeModalOpen(true)}
             icon={<Code2 className="w-4 h-4" />}
           >
-            ESP32 API Schema
+            ESP32 API Contract
           </Button>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => showToast('Pairing scanner initialized. Listening for ESP32 broadcast...', 'info')}
-            icon={<Plus className="w-4 h-4" />}
-          >
-            Pair New Node
-          </Button>
+          {hasRole('ADMIN') && (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => setIsRegisterModalOpen(true)}
+              icon={<Plus className="w-4 h-4" />}
+            >
+              Register ESP32 Node
+            </Button>
+          )}
         </div>
       </div>
 
-      {/* Simulation / Hardware Readiness Notice */}
+      {/* Simulation vs Hardware Notice */}
       <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-start gap-3">
-        <div className="w-2 h-2 rounded-full bg-amber-500 mt-2 shrink-0 animate-pulse" />
-        <div className="text-xs text-amber-900 leading-relaxed">
-          <span className="font-bold text-amber-950">Hardware Integration Architecture:</span> The dashboard currently runs with simulated ESP32 node telemetry for software validation. Physical ESP32 microcontrollers can stream live sensor readings directly via the REST endpoint <code className="px-1.5 py-0.5 rounded bg-amber-200/50 font-mono text-[11px] text-amber-950">POST /api/sensors/readings</code> or MQTT telemetry broker.
+        <Info className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
+        <div className="text-xs text-amber-950 leading-relaxed">
+          <strong className="font-semibold text-amber-950">ESP32 Integration Foundation:</strong> The software telemetry pipeline is fully real-time ready. Physical ESP32 microcontrollers send telemetry via <code className="px-1.5 py-0.5 rounded bg-amber-200/60 font-mono text-[11px] font-bold">POST /api/devices/:deviceId/telemetry</code>. When physical hardware is not connected, demo telemetry is explicitly labeled <strong>DEMO SENSOR DATA</strong>.
         </div>
       </div>
 
-      {/* Network Health Overview Banner */}
+      {/* Selected Node Live Telemetry Panel */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+            Selected Analyzer Live Sensor Stream
+          </h3>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-500">Select Node:</span>
+            <select
+              value={selectedDeviceId}
+              onChange={(e) => setSelectedDeviceId(e.target.value)}
+              className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-white border border-slate-300 text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-dairy-500"
+            >
+              {devices.map((d) => (
+                <option key={d.deviceId} value={d.deviceId}>
+                  {d.name} ({d.deviceId}) — {d.status}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <LiveSensorPanel
+          reading={liveReading}
+          deviceId={selectedDevice?.deviceId || selectedDeviceId}
+          deviceName={selectedDevice?.name || 'Selected Device'}
+          deviceStatus={selectedDevice?.status || 'ONLINE'}
+          isDemo={isDemoMode || selectedDevice?.deviceId === 'ESP32-DEMO-001'}
+          onSimulateTick={handleSimulateTick}
+        />
+      </div>
+
+      {/* Network Overview Summary */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="p-5 rounded-2xl bg-white border border-slate-200/80 flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
             <Wifi className="w-6 h-6" />
           </div>
           <div>
-            <span className="text-xs uppercase font-bold text-slate-400 block">Active IoT Nodes</span>
+            <span className="text-xs uppercase font-bold text-slate-400 block">Active Online Nodes</span>
             <span className="text-2xl font-black text-slate-900 font-mono">
-              {connectedCount} / {devices.length}
+              {activeCount} / {devices.length}
             </span>
           </div>
         </div>
@@ -73,8 +199,8 @@ export const Devices: React.FC = () => {
             <Radio className="w-6 h-6" />
           </div>
           <div>
-            <span className="text-xs uppercase font-bold text-slate-400 block">Sampling Frequency</span>
-            <span className="text-2xl font-black text-slate-900 font-mono">1.2 sec</span>
+            <span className="text-xs uppercase font-bold text-slate-400 block">Telemetry Transport</span>
+            <span className="text-xl font-bold text-slate-900 font-mono">REST JSON (Live Ready)</span>
           </div>
         </div>
 
@@ -83,8 +209,8 @@ export const Devices: React.FC = () => {
             <Cpu className="w-6 h-6" />
           </div>
           <div>
-            <span className="text-xs uppercase font-bold text-slate-400 block">Protocol</span>
-            <span className="text-xl font-bold text-slate-900 font-mono">REST JSON / MQTT Ready</span>
+            <span className="text-xs uppercase font-bold text-slate-400 block">Sensor Probes</span>
+            <span className="text-xl font-bold text-slate-900 font-mono">6 Multi-Parameter</span>
           </div>
         </div>
       </div>
@@ -100,18 +226,115 @@ export const Devices: React.FC = () => {
         ))}
       </div>
 
+      {/* Register Device Modal */}
+      <Modal
+        isOpen={isRegisterModalOpen}
+        onClose={() => setIsRegisterModalOpen(false)}
+        title="Register New ESP32 Analyzer Node"
+        description="Provision a new ESP32 hardware dock for milk intake testing"
+        maxWidth="md"
+      >
+        <form onSubmit={handleRegisterDevice} className="space-y-4">
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+              Device Identifier (e.g. ESP32-MILK-004) *
+            </label>
+            <Input
+              value={newDeviceId}
+              onChange={(e) => setNewDeviceId(e.target.value)}
+              placeholder="ESP32-MILK-004"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+              Device Display Name *
+            </label>
+            <Input
+              value={newDeviceName}
+              onChange={(e) => setNewDeviceName(e.target.value)}
+              placeholder="North Dock Rapid Analyzer"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+              Physical Location / Bay
+            </label>
+            <Input
+              value={newDeviceLocation}
+              onChange={(e) => setNewDeviceLocation(e.target.value)}
+              placeholder="Collection Dock Bay-3"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                Device Architecture
+              </label>
+              <select
+                value={newDeviceType}
+                onChange={(e) => setNewDeviceType(e.target.value)}
+                className="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 bg-white"
+              >
+                <option value="ESP32_MILK_ANALYZER">ESP32 Milk Analyzer</option>
+                <option value="ESP32_INTAKE_DOCK">ESP32 Intake Dock</option>
+                <option value="LAB_BENCHMARK_PROBE">Lab Benchmark Probe</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                Connection Mode
+              </label>
+              <select
+                value={newConnectionMode}
+                onChange={(e) => setNewConnectionMode(e.target.value)}
+                className="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 bg-white"
+              >
+                <option value="REST_POLLING">REST HTTP Telemetry</option>
+                <option value="WEBSOCKET_READY">WebSocket Ready</option>
+                <option value="MQTT_READY">MQTT Ready</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsRegisterModalOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              size="sm"
+              disabled={isRegistering}
+            >
+              {isRegistering ? 'Registering...' : 'Register Device'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
       {/* ESP32 JSON Schema Modal */}
       <Modal
         isOpen={isCodeModalOpen}
         onClose={() => setIsCodeModalOpen(false)}
         title="ESP32 Ingestion Payload Specification"
-        description="Physical nodes dispatch HTTP POST /api/sensors/readings with this JSON contract"
+        description="Physical nodes dispatch HTTP POST /api/devices/:deviceId/telemetry with this JSON contract"
         maxWidth="lg"
       >
         <div className="space-y-4">
           <div className="p-4 rounded-2xl bg-slate-950 text-emerald-400 font-mono text-xs overflow-x-auto leading-relaxed border border-slate-800">
-            <pre>{`POST /api/sensors/readings HTTP/1.1
-Host: 192.168.1.100:5000
+            <pre>{`POST /api/devices/ESP32-MILK-001/telemetry HTTP/1.1
+Host: milkguard-server:5000
 Content-Type: application/json
 
 {
@@ -122,12 +345,15 @@ Content-Type: application/json
   "fat": 4.5,
   "density": 1.0295,
   "conductivity": 5.1,
-  "milkLevel": 25.0
+  "milkLevel": 25.0,
+  "firmwareVersion": "v2.1.0",
+  "sequenceNumber": 1042,
+  "batteryLevel": 98
 }`}</pre>
           </div>
 
           <p className="text-xs text-slate-600 leading-relaxed">
-            The backend validates each sensor parameter within physical bounds and immediately streams the latest values to connected testing stations.
+            The backend validates each sensor reading within physical bounds (-10 to 100°C, pH 0-14, fat 0-20%, density 0.5-2.0 g/mL, conductivity 0-50 mS/cm, milkLevel ≥ 0) and caches the latest reading for instant one-click test capture.
           </p>
 
           <div className="flex justify-end pt-2">

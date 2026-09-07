@@ -1166,11 +1166,17 @@ export const SEED_DEVICES: IDevice[] = [
   {
     deviceId: 'ESP32-MILK-001',
     name: 'Smart Milk Analyzer Bay-A',
-    status: 'CONNECTED',
+    deviceType: 'ESP32_STATION',
+    status: 'ONLINE',
+    connectionMode: 'CONNECTED',
     firmwareVersion: 'v1.4.2',
+    apiKey: 'dev_key_esp32_milk_001_live',
     ipAddress: '192.168.1.101',
     macAddress: '24:6F:28:8A:41:B2',
     lastSeen: new Date(),
+    calibrationStatus: 'CALIBRATED',
+    lastCalibrationDate: new Date('2026-08-15'),
+    calibrationDueDate: new Date('2026-11-15'),
     sensors: {
       temperature: true,
       ph: true,
@@ -1185,11 +1191,17 @@ export const SEED_DEVICES: IDevice[] = [
   {
     deviceId: 'ESP32-MILK-002',
     name: 'Smart Milk Analyzer Bay-B',
-    status: 'CONNECTED',
+    deviceType: 'ESP32_STATION',
+    status: 'OFFLINE',
+    connectionMode: 'CONNECTED',
     firmwareVersion: 'v1.4.2',
+    apiKey: 'dev_key_esp32_milk_002_live',
     ipAddress: '192.168.1.102',
     macAddress: '24:6F:28:8A:41:C8',
-    lastSeen: new Date(Date.now() - 45000),
+    lastSeen: new Date(Date.now() - 3600000 * 2), // 2 hours ago -> OFFLINE
+    calibrationStatus: 'CALIBRATED',
+    lastCalibrationDate: new Date('2026-08-01'),
+    calibrationDueDate: new Date('2026-11-01'),
     sensors: {
       temperature: true,
       ph: true,
@@ -1204,11 +1216,17 @@ export const SEED_DEVICES: IDevice[] = [
   {
     deviceId: 'ESP32-MILK-003',
     name: 'Mobile Chilling Tank Unit 03',
-    status: 'DISCONNECTED',
+    deviceType: 'ESP32_PORTABLE',
+    status: 'OFFLINE',
+    connectionMode: 'CONNECTED',
     firmwareVersion: 'v1.3.8',
+    apiKey: 'dev_key_esp32_milk_003_live',
     ipAddress: '192.168.1.103',
     macAddress: '3C:71:BF:4E:91:2A',
-    lastSeen: new Date(Date.now() - 3600000 * 4),
+    lastSeen: new Date(Date.now() - 3600000 * 48), // 48 hours ago -> OFFLINE
+    calibrationStatus: 'DUE',
+    lastCalibrationDate: new Date('2026-05-01'),
+    calibrationDueDate: new Date('2026-08-01'),
     sensors: {
       temperature: true,
       ph: false,
@@ -1221,13 +1239,19 @@ export const SEED_DEVICES: IDevice[] = [
     createdAt: new Date('2026-08-01')
   },
   {
-    deviceId: 'ESP32-MILK-004',
-    name: 'Chilling Silo Monitor Tank 1',
-    status: 'CONNECTED',
-    firmwareVersion: 'v1.4.0',
-    ipAddress: '192.168.1.104',
-    macAddress: '24:6F:28:8A:55:E1',
-    lastSeen: new Date(Date.now() - 15000),
+    deviceId: 'ESP32-DEMO-001',
+    name: 'Station Simulation Node (Demo)',
+    deviceType: 'SIMULATOR',
+    status: 'ONLINE',
+    connectionMode: 'DEMO',
+    firmwareVersion: 'v2.0.0-demo',
+    apiKey: 'demo_device_key',
+    ipAddress: '127.0.0.1',
+    macAddress: 'DE:MO:00:00:00:01',
+    lastSeen: new Date(),
+    calibrationStatus: 'CALIBRATED',
+    lastCalibrationDate: new Date('2026-09-01'),
+    calibrationDueDate: new Date('2026-12-01'),
     sensors: {
       temperature: true,
       ph: true,
@@ -1236,8 +1260,30 @@ export const SEED_DEVICES: IDevice[] = [
       density: true,
       level: true
     },
-    location: 'Bulk Cold Storage Silo #1',
-    createdAt: new Date('2026-08-10')
+    location: 'Demonstration Testing Dock',
+    createdAt: new Date('2026-09-01')
+  },
+  {
+    deviceId: 'ESP32-UNPROVISIONED-01',
+    name: 'Unprovisioned Node Bay-C',
+    deviceType: 'ESP32_STATION',
+    status: 'UNKNOWN',
+    connectionMode: 'CONNECTED',
+    firmwareVersion: 'v1.0.0',
+    apiKey: 'dev_key_unprovisioned',
+    ipAddress: '192.168.1.109',
+    macAddress: '00:00:00:00:00:00',
+    calibrationStatus: 'UNKNOWN',
+    sensors: {
+      temperature: true,
+      ph: true,
+      fat: true,
+      conductivity: true,
+      density: true,
+      level: true
+    },
+    location: 'Expansion Bay C',
+    createdAt: new Date('2026-09-01')
   }
 ];
 

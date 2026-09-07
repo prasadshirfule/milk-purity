@@ -171,10 +171,33 @@ export const api = {
   getCollections: () => apiClient<MilkCollection[]>('/collections'),
   getDevices: () => apiClient<Device[]>('/devices'),
   getDeviceById: (id: string) => apiClient<Device>(`/devices/${id}`),
+  registerDevice: (device: Partial<Device>) =>
+    apiClient<Device>('/devices', {
+      method: 'POST',
+      body: JSON.stringify(device)
+    }),
+  updateDevice: (id: string, device: Partial<Device>) =>
+    apiClient<Device>(`/devices/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(device)
+    }),
+  deleteDevice: (id: string) =>
+    apiClient<any>(`/devices/${id}`, {
+      method: 'DELETE'
+    }),
   triggerDeviceHeartbeat: (id: string) =>
     apiClient<Device>(`/devices/${id}/heartbeat`, {
       method: 'POST'
     }),
+  sendDeviceTelemetry: (deviceId: string, reading: any) =>
+    apiClient<{ reading: any }>(`/devices/${encodeURIComponent(deviceId)}/telemetry`, {
+      method: 'POST',
+      body: JSON.stringify(reading)
+    }),
+  getLatestTelemetry: (deviceId: string) =>
+    apiClient<any>(`/devices/${encodeURIComponent(deviceId)}/telemetry/latest`),
+  simulateSensorTick: (deviceId?: string) =>
+    apiClient<any>(`/sensors/simulate${deviceId ? `?deviceId=${encodeURIComponent(deviceId)}` : ''}`),
   getAlerts: (params?: { status?: string; severity?: string }) => {
     const qs = params ? '?' + new URLSearchParams(params as any).toString() : '';
     return apiClient<Alert[]>(`/alerts${qs}`);

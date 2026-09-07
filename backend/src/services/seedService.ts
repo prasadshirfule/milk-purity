@@ -8,6 +8,7 @@ import { Setting } from '../models/Setting';
 import { User } from '../models/User';
 import { AuditLog } from '../models/AuditLog';
 import { CustomerCodeService } from './customerCodeService';
+import { sensorService } from './sensorService';
 import {
   SEED_FARMERS,
   SEED_TESTS,
@@ -18,7 +19,7 @@ import {
   SEED_USERS,
   SEED_AUDIT_LOGS
 } from '../mock/seedData';
-import { IFarmer, IMilkTest, IMilkCollection, IDevice, IAlert, IDairySettings, IUser, IAuditLog } from '../types';
+import { IFarmer, IMilkTest, IMilkCollection, IDevice, IAlert, IDairySettings, IUser, IAuditLog, DeviceStatus } from '../types';
 
 class DataRepository {
   private farmers: IFarmer[] = [...SEED_FARMERS];
@@ -43,6 +44,17 @@ class DataRepository {
         c.customerCode = farmerCodeMap.get(c.farmerId);
       }
     }
+  }
+
+  public async resetDefaults(): Promise<void> {
+    this.farmers = JSON.parse(JSON.stringify(SEED_FARMERS));
+    this.tests = JSON.parse(JSON.stringify(SEED_TESTS));
+    this.collections = JSON.parse(JSON.stringify(SEED_COLLECTIONS));
+    this.devices = JSON.parse(JSON.stringify(SEED_DEVICES));
+    this.alerts = JSON.parse(JSON.stringify(SEED_ALERTS));
+    this.settings = JSON.parse(JSON.stringify(SEED_SETTINGS));
+    this.users = JSON.parse(JSON.stringify(SEED_USERS));
+    this.auditLogs = JSON.parse(JSON.stringify(SEED_AUDIT_LOGS));
   }
 
   public async seedDatabaseIfEmpty(): Promise<void> {
@@ -231,38 +243,141 @@ class DataRepository {
     return col;
   }
 
-  // --- DEVICES ---
-  public async getDevices(): Promise<IDevice[]> {
-    if (getDbConnectionStatus()) {
-      return (await Device.find().lean()) as unknown as IDevice[];
+  // --- DEVICES & SENSORS ---
+  public resolveDeviceStatus(device: IDevice, timeoutMs = 60000): DeviceStatus {
+    if (!device.lastSeen) {
+      return 'UNKNOWN';
     }
-    return this.devices;
+    const elapsed = Date.now() - new Date(device.lastSeen).getTime();
+    if (elapsed <= timeoutMs) {
+      if (device.sensors && (device.sensors.ph === false || device.sensors.fat === false)) {
+        return 'WARNING';
+      }
+      return 'ONLINE';
+    }
+    return 'OFFLINE';
+  }
+
+  public async getDevices(): Promise<IDevice[]> {
+    let rawDevices: IDevice[] = [];
+    if (getDbConnectionStatus()) {
+      rawDevices = (await Device.find().lean()) as unknown as IDevice[];
+    } else {
+      rawDevices = [...this.devices];
+    }
+
+    return rawDevices.map((d) => ({
+      ...d,
+      status: this.resolveDeviceStatus(d),
+      latestReading: sensorService.getLatestReading(d.deviceId) || undefined
+    }));
   }
 
   public async getDeviceById(id: string): Promise<IDevice | null> {
+    let dev: IDevice | null = null;
     if (getDbConnectionStatus()) {
-      return (await Device.findOne({ deviceId: id }).lean()) as unknown as IDevice | null;
+      dev = (await Device.findOne({ deviceId: id }).lean()) as unknown as IDevice | null;
+    } else {
+      dev = this.devices.find(d => d.deviceId === id) || null;
     }
-    return this.devices.find(d => d.deviceId === id) || null;
+
+    if (!dev) return null;
+    return {
+      ...dev,
+      status: this.resolveDeviceStatus(dev),
+      latestReading: sensorService.getLatestReading(dev.deviceId) || undefined
+    };
+  }
+
+  public async addDevice(data: Partial<IDevice>): Promise<IDevice> {
+    const newDevice: IDevice = {
+      deviceId: data.deviceId || `ESP32-STATION-${String(this.devices.length + 1).padStart(3, '0')}`,
+      name: data.name || 'New Sensor Dock',
+      deviceType: data.deviceType || 'ESP32_STATION',
+      status: 'UNKNOWN',
+      connectionMode: data.connectionMode || 'CONNECTED',
+      firmwareVersion: data.firmwareVersion || 'v1.0.0',
+      apiKey: data.apiKey || `dev_key_${Math.random().toString(36).substring(2, 10)}`,
+      ipAddress: data.ipAddress || '192.168.1.150',
+      macAddress: data.macAddress || '24:6F:28:8A:99:99',
+      lastSeen: undefined,
+      calibrationStatus: data.calibrationStatus || 'UNKNOWN',
+      lastCalibrationDate: data.lastCalibrationDate,
+      calibrationDueDate: data.calibrationDueDate,
+      sensors: data.sensors || {
+        temperature: true,
+        ph: true,
+        fat: true,
+        conductivity: true,
+        density: true,
+        level: true
+      },
+      location: data.location || 'Testing Bay',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    if (getDbConnectionStatus()) {
+      await Device.create(newDevice);
+    }
+    this.devices.unshift(newDevice);
+    return newDevice;
+  }
+
+  public async updateDevice(id: string, data: Partial<IDevice>): Promise<IDevice | null> {
+    if (getDbConnectionStatus()) {
+      await Device.updateOne({ deviceId: id }, { $set: { ...data, updatedAt: new Date() } });
+      const doc = await Device.findOne({ deviceId: id }).lean();
+      const idx = this.devices.findIndex(d => d.deviceId === id);
+      if (idx !== -1 && doc) {
+        this.devices[idx] = doc as unknown as IDevice;
+      }
+      if (!doc) return null;
+      return {
+        ...(doc as unknown as IDevice),
+        status: this.resolveDeviceStatus(doc as unknown as IDevice),
+        latestReading: sensorService.getLatestReading(id) || undefined
+      };
+    }
+
+    const idx = this.devices.findIndex(d => d.deviceId === id);
+    if (idx !== -1) {
+      this.devices[idx] = { ...this.devices[idx], ...data, updatedAt: new Date() };
+      return {
+        ...this.devices[idx],
+        status: this.resolveDeviceStatus(this.devices[idx]),
+        latestReading: sensorService.getLatestReading(id) || undefined
+      };
+    }
+    return null;
+  }
+
+  public async deleteDevice(id: string): Promise<boolean> {
+    if (getDbConnectionStatus()) {
+      const res = await Device.deleteOne({ deviceId: id });
+      this.devices = this.devices.filter(d => d.deviceId !== id);
+      return res.deletedCount > 0;
+    }
+    const lenBefore = this.devices.length;
+    this.devices = this.devices.filter(d => d.deviceId !== id);
+    return this.devices.length < lenBefore;
   }
 
   public async updateDeviceHeartbeat(id: string): Promise<IDevice | null> {
     const now = new Date();
     if (getDbConnectionStatus()) {
-      await Device.updateOne({ deviceId: id }, { $set: { lastSeen: now, status: 'CONNECTED' } });
+      await Device.updateOne({ deviceId: id }, { $set: { lastSeen: now } });
       const doc = await Device.findOne({ deviceId: id }).lean();
       const dev = this.devices.find(d => d.deviceId === id);
       if (dev && doc) {
         dev.lastSeen = now;
-        dev.status = 'CONNECTED';
       }
-      return doc as unknown as IDevice | null;
+      return doc ? { ...(doc as unknown as IDevice), status: 'ONLINE' } : null;
     }
     const dev = this.devices.find(d => d.deviceId === id);
     if (dev) {
       dev.lastSeen = now;
-      dev.status = 'CONNECTED';
-      return dev;
+      return { ...dev, status: 'ONLINE' };
     }
     return null;
   }

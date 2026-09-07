@@ -347,6 +347,8 @@ export const createTest = async (req: Request, res: Response): Promise<void> => 
       deviceId: sensorData.deviceId,
       quantity: qtyNum,
       timestamp: new Date(),
+      sensorTimestamp: req.body.sensorTimestamp ? new Date(req.body.sensorTimestamp) : new Date(),
+      testTimestamp: req.body.testTimestamp ? new Date(req.body.testTimestamp) : new Date(),
       temperature: sensorData.temperature,
       ph: sensorData.ph,
       fat: sensorData.fat,

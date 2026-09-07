@@ -63,7 +63,7 @@ export const DeviceCard: React.FC<DeviceCardProps> = ({ device, onAction }) => {
           <div>
             <span className="text-[10px] uppercase font-bold text-slate-400 block">Last Heartbeat</span>
             <span className="text-slate-600">
-              {new Date(device.lastSeen).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              {device.lastSeen ? new Date(device.lastSeen).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : 'Never'}
             </span>
           </div>
         </div>

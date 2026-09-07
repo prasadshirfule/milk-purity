@@ -191,7 +191,7 @@ export const DeviceDetails: React.FC = () => {
           <span className="text-[10px] uppercase font-bold text-slate-400 block">Last Seen Heartbeat</span>
           <span className="text-sm font-bold text-slate-800 flex items-center gap-1">
             <Clock className="w-4 h-4 text-slate-400" />
-            {new Date(device.lastSeen).toLocaleTimeString()}
+            {device.lastSeen ? new Date(device.lastSeen).toLocaleTimeString() : 'Never'}
           </span>
           <span className="text-[11px] text-slate-400 block mt-1">Cycle: 2s Continuous</span>
         </div>

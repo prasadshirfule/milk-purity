@@ -623,6 +623,8 @@ export const DemoDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         farmerName,
         deviceId,
         quantity,
+        sensorTimestamp: sensorReading.timestamp || new Date().toISOString(),
+        testTimestamp: new Date().toISOString(),
         temperature: sensorReading.temperature,
         ph: sensorReading.ph,
         fat: sensorReading.fat,

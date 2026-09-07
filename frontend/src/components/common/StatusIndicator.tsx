@@ -1,7 +1,7 @@
 import React from 'react';
 
 export interface StatusIndicatorProps {
-  status: 'CONNECTED' | 'DISCONNECTED' | 'ERROR' | 'OFFLINE' | 'ACTIVE' | 'INACTIVE' | 'NORMAL' | 'WARNING' | 'CRITICAL';
+  status: 'ONLINE' | 'CONNECTED' | 'DISCONNECTED' | 'ERROR' | 'OFFLINE' | 'UNKNOWN' | 'ACTIVE' | 'INACTIVE' | 'NORMAL' | 'WARNING' | 'CRITICAL';
   showLabel?: boolean;
   size?: 'sm' | 'md' | 'lg';
   labelOverride?: string;
@@ -15,6 +15,7 @@ export const StatusIndicator: React.FC<StatusIndicatorProps> = ({
 }) => {
   const getColors = () => {
     switch (status) {
+      case 'ONLINE':
       case 'CONNECTED':
       case 'ACTIVE':
       case 'NORMAL':
@@ -26,6 +27,8 @@ export const StatusIndicator: React.FC<StatusIndicatorProps> = ({
       case 'DISCONNECTED':
       case 'OFFLINE':
         return { dot: 'bg-rose-500', pulse: 'bg-rose-400', text: 'text-rose-700' };
+      case 'UNKNOWN':
+        return { dot: 'bg-slate-400', pulse: 'bg-slate-300', text: 'text-slate-500' };
       case 'INACTIVE':
       default:
         return { dot: 'bg-slate-400', pulse: 'bg-slate-300', text: 'text-slate-600' };

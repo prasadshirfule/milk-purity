@@ -4,7 +4,10 @@ export type QualityClassification = 'EXCELLENT' | 'GOOD' | 'SUSPICIOUS' | 'REJEC
 export type ParameterStatus = 'NORMAL' | 'LOW' | 'HIGH' | 'CRITICAL';
 export type AlertSeverity = 'INFO' | 'WARNING' | 'CRITICAL';
 export type AlertStatus = 'ACTIVE' | 'RESOLVED' | 'DISMISSED';
-export type DeviceStatus = 'CONNECTED' | 'DISCONNECTED' | 'ERROR' | 'OFFLINE';
+export type DeviceStatus = 'ONLINE' | 'OFFLINE' | 'WARNING' | 'UNKNOWN' | 'CONNECTED' | 'DISCONNECTED' | 'ERROR';
+export type DeviceType = 'ESP32_STATION' | 'ESP32_PORTABLE' | 'LAB_ANALYZER' | 'SIMULATOR' | 'ESP32_MILK_ANALYZER' | 'ESP32_INTAKE_DOCK' | 'LAB_BENCHMARK_PROBE';
+export type ConnectionMode = 'DEMO' | 'CONNECTED' | 'REST_POLLING' | 'WEBSOCKET_READY' | 'MQTT_READY';
+export type CalibrationStatus = 'CALIBRATED' | 'DUE' | 'OVERDUE' | 'UNKNOWN';
 
 export type AlertType =
   | 'HIGH_CONDUCTIVITY'
@@ -36,13 +39,17 @@ export interface Farmer {
 
 export interface SensorReading {
   deviceId: string;
-  timestamp: string;
+  timestamp: string | Date;
   temperature: number; // °C
   ph: number;
   fat: number; // %
   density: number; // g/mL
   conductivity: number; // mS/cm
   milkLevel: number; // Litres
+  firmwareVersion?: string;
+  sequenceNumber?: number;
+  batteryLevel?: number;
+  isDemo?: boolean;
 }
 
 export interface ParameterAssessment {
@@ -86,6 +93,8 @@ export interface MilkTest {
   deviceId: string;
   quantity: number;
   timestamp: string | Date;
+  sensorTimestamp?: string | Date;
+  testTimestamp?: string | Date;
   temperature: number;
   ph: number;
   fat: number;
@@ -145,11 +154,16 @@ export interface DeviceSensorHealth {
 export interface Device {
   deviceId: string;
   name: string;
+  deviceType?: DeviceType;
   status: DeviceStatus;
+  connectionMode?: ConnectionMode;
   firmwareVersion: string;
   ipAddress?: string;
   macAddress?: string;
-  lastSeen: string | Date;
+  lastSeen?: string | Date;
+  calibrationStatus?: CalibrationStatus;
+  lastCalibrationDate?: string | Date;
+  calibrationDueDate?: string | Date;
   sensors: {
     temperature: boolean;
     ph: boolean;
@@ -159,7 +173,9 @@ export interface Device {
     level: boolean;
   };
   location?: string;
+  latestReading?: SensorReading;
   createdAt: string | Date;
+  updatedAt?: string | Date;
 }
 
 export interface Alert {
@@ -248,7 +264,14 @@ export type AuditAction =
   | 'UPDATE_SETTINGS'
   | 'CREATE_USER'
   | 'UPDATE_USER'
-  | 'SYSTEM_ALERT';
+  | 'SYSTEM_ALERT'
+  | 'DEVICE_REGISTERED'
+  | 'DEVICE_UPDATED'
+  | 'DEVICE_DELETED'
+  | 'DEVICE_CONNECTED'
+  | 'DEVICE_OFFLINE'
+  | 'TELEMETRY_RECEIVED'
+  | 'SENSOR_TEST_CAPTURED';
 
 export interface AuditLog {
   auditId: string;

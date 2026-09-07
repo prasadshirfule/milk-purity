@@ -7,11 +7,33 @@ const DeviceSchema = new Schema<IDeviceDocument>(
   {
     deviceId: { type: String, required: true, unique: true, index: true },
     name: { type: String, required: true },
-    status: { type: String, enum: ['CONNECTED', 'DISCONNECTED', 'ERROR', 'OFFLINE'], default: 'CONNECTED' },
+    deviceType: {
+      type: String,
+      enum: ['ESP32_STATION', 'ESP32_PORTABLE', 'LAB_ANALYZER', 'SIMULATOR'],
+      default: 'ESP32_STATION'
+    },
+    status: {
+      type: String,
+      enum: ['ONLINE', 'OFFLINE', 'WARNING', 'UNKNOWN', 'CONNECTED', 'DISCONNECTED', 'ERROR'],
+      default: 'UNKNOWN'
+    },
+    connectionMode: {
+      type: String,
+      enum: ['DEMO', 'CONNECTED'],
+      default: 'CONNECTED'
+    },
     firmwareVersion: { type: String, default: 'v1.2.0' },
+    apiKey: { type: String },
     ipAddress: { type: String, default: '192.168.1.105' },
     macAddress: { type: String, default: '3C:71:BF:4E:91:2A' },
-    lastSeen: { type: Date, default: Date.now },
+    lastSeen: { type: Date },
+    calibrationStatus: {
+      type: String,
+      enum: ['CALIBRATED', 'DUE', 'OVERDUE', 'UNKNOWN'],
+      default: 'UNKNOWN'
+    },
+    lastCalibrationDate: { type: Date },
+    calibrationDueDate: { type: Date },
     sensors: {
       temperature: { type: Boolean, default: true },
       ph: { type: Boolean, default: true },
