@@ -38,20 +38,22 @@ export class MLService {
 
       if (response.ok) {
         const data = await response.json();
-        const rawScore = Number(data.purity_score ?? data.score ?? 92.0);
-        const score = Number(Math.max(0, Math.min(100, Number.isFinite(rawScore) ? rawScore : 92.0)).toFixed(1));
-        return {
-          prediction: data.prediction || (score >= 75 ? 'DEMO_NORMAL' : 'DEMO_ANOMALY'),
-          confidence: null, // neutral null per scientific honesty guidelines
-          score,
-          purityScore: score,
-          aiRecommendation: (data.ai_recommendation as 'ACCEPT' | 'REVIEW' | 'REJECT') || (score >= 75 ? 'ACCEPT' : score >= 60 ? 'REVIEW' : 'REJECT'),
-          modelVersion: data.model_version || 'screening-baseline-v1',
-          scoreExplanation: Array.isArray(data.score_explanation) ? data.score_explanation : [],
-          warnings: Array.isArray(data.warnings) ? data.warnings : [],
-          isMock: true,
-          disclaimer: 'Milk Purity Score is an automated quality-screening estimate based on measured parameters. It is not a substitute for laboratory adulteration testing.'
-        };
+        const rawScore = Number(data.purity_score ?? data.score);
+        if (Number.isFinite(rawScore)) {
+          const score = Number(Math.max(0, Math.min(100, rawScore)).toFixed(1));
+          return {
+            prediction: data.prediction || (score >= 75 ? 'DEMO_NORMAL' : 'DEMO_ANOMALY'),
+            confidence: null, // neutral null per scientific honesty guidelines
+            score,
+            purityScore: score,
+            aiRecommendation: (data.ai_recommendation as 'ACCEPT' | 'REVIEW' | 'REJECT') || (score >= 75 ? 'ACCEPT' : score >= 60 ? 'REVIEW' : 'REJECT'),
+            modelVersion: data.model_version || 'screening-baseline-v1',
+            scoreExplanation: Array.isArray(data.score_explanation) ? data.score_explanation : [],
+            warnings: Array.isArray(data.warnings) ? data.warnings : [],
+            isMock: true,
+            disclaimer: 'Milk Purity Score is an automated quality-screening estimate based on measured parameters. It is not a substitute for laboratory adulteration testing.'
+          };
+        }
       }
     } catch (err) {
       // Python ML Service offline or unreachable -> use baseline screening calculation

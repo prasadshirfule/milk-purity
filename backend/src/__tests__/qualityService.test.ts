@@ -457,7 +457,103 @@ describe('AI/ML Milk Purity Scoring & Recommendations', () => {
     assert.strictEqual(combinedScore, 55);
     assert.strictEqual(QualityService.calculateQuality(combinedDeviation, DEFAULT_THRESHOLDS).aiRecommendation, 'REJECT');
   });
+
+  it('7. Score explanation accurately lists observations matching calculated penalties without discrepancies', () => {
+    const reading: ISensorReading = {
+      deviceId: 'ESP32-MILK-001',
+      timestamp: new Date().toISOString(),
+      temperature: 24.0,
+      ph: 6.45, // borderline low pH
+      fat: 4.5, // normal
+      density: 1.029, // normal
+      conductivity: 5.0, // normal
+      milkLevel: 25.0
+    };
+
+    const res = QualityService.calculateQuality(reading, DEFAULT_THRESHOLDS);
+    assert.strictEqual(res.purityScore, 85);
+    assert.strictEqual(res.aiRecommendation, 'ACCEPT');
+    assert.strictEqual(res.classification, 'GOOD');
+    
+    // Check that explanation lists pH as anomaly and others as normal
+    assert.ok(res.scoreExplanation.some((s: string) => s.startsWith('⚠') && s.includes('pH')));
+    assert.ok(res.scoreExplanation.some((s: string) => s.startsWith('✓') && s.includes('Fat')));
+    assert.ok(res.scoreExplanation.some((s: string) => s.startsWith('✓') && s.includes('Density')));
+    assert.ok(res.scoreExplanation.some((s: string) => s.startsWith('✓') && s.includes('Conductivity')));
+  });
+
+  it('8. Legacy record compatibility: deterministic score derivation from stored parameters', () => {
+    const legacyRawRecord = {
+      temperature: 24.0,
+      ph: 6.65,
+      fat: 4.5,
+      density: 1.029,
+      conductivity: 5.0,
+      milkLevel: 25.0,
+      deviceId: 'ESP32-LEGACY',
+      timestamp: '2026-08-15T08:00:00.000Z'
+    };
+
+    const derived = QualityService.calculateQuality(legacyRawRecord, DEFAULT_THRESHOLDS);
+    assert.strictEqual(derived.purityScore, 100);
+    assert.strictEqual(derived.aiRecommendation, 'ACCEPT');
+  });
+
+  it('9. Recommendation mapping strictly respects screening thresholds', () => {
+    // 90-100 -> ACCEPT
+    const excellent = QualityService.calculateQuality({
+      deviceId: 'ESP32-MILK-001',
+      timestamp: new Date().toISOString(),
+      temperature: 24.0,
+      ph: 6.65,
+      fat: 4.5,
+      density: 1.029,
+      conductivity: 5.0,
+      milkLevel: 20.0
+    }, DEFAULT_THRESHOLDS);
+    assert.strictEqual(excellent.aiRecommendation, 'ACCEPT');
+    assert.strictEqual(excellent.classification, 'EXCELLENT');
+
+    // 75-89.9 -> ACCEPT (penalty 15 for pH -> 85)
+    const good = QualityService.calculateQuality({
+      deviceId: 'ESP32-MILK-001',
+      timestamp: new Date().toISOString(),
+      temperature: 24.0,
+      ph: 6.45,
+      fat: 4.5,
+      density: 1.029,
+      conductivity: 5.0,
+      milkLevel: 20.0
+    }, DEFAULT_THRESHOLDS);
+    assert.strictEqual(good.aiRecommendation, 'ACCEPT');
+    assert.strictEqual(good.classification, 'GOOD');
+
+    // 60-74.9 -> REVIEW (penalty 15 for pH + 18 for density -> 67)
+    const review = QualityService.calculateQuality({
+      deviceId: 'ESP32-MILK-001',
+      timestamp: new Date().toISOString(),
+      temperature: 24.0,
+      ph: 6.45,
+      fat: 4.5,
+      density: 1.024,
+      conductivity: 5.0,
+      milkLevel: 20.0
+    }, DEFAULT_THRESHOLDS);
+    assert.strictEqual(review.aiRecommendation, 'REVIEW');
+    assert.strictEqual(review.classification, 'SUSPICIOUS');
+
+    // <60 -> REJECT (penalty 35 for critical pH + 18 for density -> 47)
+    const reject = QualityService.calculateQuality({
+      deviceId: 'ESP32-MILK-001',
+      timestamp: new Date().toISOString(),
+      temperature: 24.0,
+      ph: 5.5,
+      fat: 4.5,
+      density: 1.024,
+      conductivity: 5.0,
+      milkLevel: 20.0
+    }, DEFAULT_THRESHOLDS);
+    assert.strictEqual(reject.aiRecommendation, 'REJECT');
+    assert.strictEqual(reject.classification, 'REJECT');
+  });
 });
-
-
-
