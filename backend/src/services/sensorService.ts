@@ -134,8 +134,46 @@ class SensorService {
     return { valid: true, reading };
   }
 
-  public storeReading(reading: ISensorReading): void {
+  public storeReading(reading: ISensorReading): {
+    status: 'ACCEPTED' | 'DUPLICATE' | 'OUT_OF_ORDER';
+    message: string;
+    current: ISensorReading;
+  } {
+    const current = this.latestReadings.get(reading.deviceId);
+    if (!current) {
+      this.latestReadings.set(reading.deviceId, reading);
+      return { status: 'ACCEPTED', message: 'Initial telemetry reading stored', current: reading };
+    }
+
+    // Check sequenceNumber when available on both packets
+    if (reading.sequenceNumber !== undefined && current.sequenceNumber !== undefined) {
+      if (reading.sequenceNumber > current.sequenceNumber) {
+        this.latestReadings.set(reading.deviceId, reading);
+        return { status: 'ACCEPTED', message: 'Telemetry updated with newer sequence packet', current: reading };
+      } else if (reading.sequenceNumber === current.sequenceNumber) {
+        return { status: 'DUPLICATE', message: 'Duplicate sequence number packet ignored', current };
+      } else {
+        return { status: 'OUT_OF_ORDER', message: 'Older sequence number packet rejected from overwriting newer reading', current };
+      }
+    }
+
+    // Timestamp monotonicity check
+    const newTime = new Date(reading.timestamp).getTime();
+    const curTime = new Date(current.timestamp).getTime();
+
+    if (!isNaN(newTime) && !isNaN(curTime)) {
+      if (newTime > curTime) {
+        this.latestReadings.set(reading.deviceId, reading);
+        return { status: 'ACCEPTED', message: 'Telemetry updated with newer timestamp reading', current: reading };
+      } else if (newTime === curTime) {
+        return { status: 'DUPLICATE', message: 'Duplicate timestamp packet ignored', current };
+      } else {
+        return { status: 'OUT_OF_ORDER', message: 'Older timestamp packet rejected from overwriting newer reading', current };
+      }
+    }
+
     this.latestReadings.set(reading.deviceId, reading);
+    return { status: 'ACCEPTED', message: 'Telemetry reading updated', current: reading };
   }
 
   public hasReading(deviceId: string): boolean {

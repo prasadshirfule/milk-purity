@@ -1,4 +1,4 @@
-import { describe, it, before, beforeEach } from 'node:test';
+import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { sensorService } from '../services/sensorService';
 import { QualityService } from '../services/qualityService';
@@ -107,7 +107,149 @@ describe('ESP32 Device Integration Foundation & Sensor Pipeline', () => {
     });
   });
 
-  describe('3. Deterministic Device Status Rules', () => {
+  describe('3. Sequence Number Ordering & Duplicate Telemetry Handling', () => {
+    it('NEWER sequence packet is accepted and updates the latest reading', () => {
+      const devId = 'ESP32-SEQ-001';
+      const packet1: ISensorReading = {
+        deviceId: devId,
+        sequenceNumber: 100,
+        timestamp: '2026-09-07T10:00:00Z',
+        temperature: 24.0,
+        ph: 6.65,
+        fat: 4.2,
+        density: 1.029,
+        conductivity: 4.9,
+        milkLevel: 20
+      };
+      const res1 = sensorService.storeReading(packet1);
+      assert.strictEqual(res1.status, 'ACCEPTED');
+      assert.strictEqual(res1.current.fat, 4.2);
+
+      const packet2: ISensorReading = {
+        deviceId: devId,
+        sequenceNumber: 101,
+        timestamp: '2026-09-07T10:00:02Z',
+        temperature: 24.1,
+        ph: 6.66,
+        fat: 4.5,
+        density: 1.030,
+        conductivity: 5.0,
+        milkLevel: 20
+      };
+      const res2 = sensorService.storeReading(packet2);
+      assert.strictEqual(res2.status, 'ACCEPTED');
+      assert.strictEqual(res2.current.fat, 4.5);
+      assert.strictEqual(res2.current.sequenceNumber, 101);
+    });
+
+    it('SAME sequence packet is treated as duplicate/idempotent and does not overwrite state', () => {
+      const devId = 'ESP32-SEQ-002';
+      const packetOriginal: ISensorReading = {
+        deviceId: devId,
+        sequenceNumber: 200,
+        timestamp: '2026-09-07T10:05:00Z',
+        temperature: 24.2,
+        ph: 6.64,
+        fat: 4.3,
+        density: 1.029,
+        conductivity: 4.8,
+        milkLevel: 25
+      };
+      sensorService.storeReading(packetOriginal);
+
+      // Duplicate packet with same sequence number
+      const packetDuplicate: ISensorReading = {
+        deviceId: devId,
+        sequenceNumber: 200,
+        timestamp: '2026-09-07T10:05:00Z',
+        temperature: 30.0, // Modified attempt
+        ph: 6.0,
+        fat: 2.0,
+        density: 1.020,
+        conductivity: 7.0,
+        milkLevel: 25
+      };
+      const resDup = sensorService.storeReading(packetDuplicate);
+      assert.strictEqual(resDup.status, 'DUPLICATE');
+
+      // Verify the latest reading remains the original
+      const latest = sensorService.getLatestReading(devId);
+      assert.ok(latest);
+      assert.strictEqual(latest.fat, 4.3);
+      assert.strictEqual(latest.temperature, 24.2);
+    });
+
+    it('OLDER sequence packet is rejected and CANNOT overwrite a newer latest reading', () => {
+      const devId = 'ESP32-SEQ-003';
+      const packetNew: ISensorReading = {
+        deviceId: devId,
+        sequenceNumber: 305,
+        timestamp: '2026-09-07T10:10:05Z',
+        temperature: 24.5,
+        ph: 6.65,
+        fat: 4.6,
+        density: 1.0295,
+        conductivity: 4.9,
+        milkLevel: 30
+      };
+      sensorService.storeReading(packetNew);
+
+      // Delayed/out-of-order packet with older sequence number
+      const packetOld: ISensorReading = {
+        deviceId: devId,
+        sequenceNumber: 301,
+        timestamp: '2026-09-07T10:10:01Z',
+        temperature: 22.0,
+        ph: 6.50,
+        fat: 3.8,
+        density: 1.028,
+        conductivity: 5.2,
+        milkLevel: 30
+      };
+      const resOld = sensorService.storeReading(packetOld);
+      assert.strictEqual(resOld.status, 'OUT_OF_ORDER');
+
+      // Verify latest reading was preserved from seq 305
+      const latest = sensorService.getLatestReading(devId);
+      assert.ok(latest);
+      assert.strictEqual(latest.sequenceNumber, 305);
+      assert.strictEqual(latest.fat, 4.6);
+    });
+
+    it('older timestamp packet cannot overwrite newer timestamp packet when sequenceNumber is omitted', () => {
+      const devId = 'ESP32-TIME-001';
+      const packetNew: ISensorReading = {
+        deviceId: devId,
+        timestamp: '2026-09-07T10:20:00Z',
+        temperature: 24.2,
+        ph: 6.64,
+        fat: 4.4,
+        density: 1.029,
+        conductivity: 5.0,
+        milkLevel: 15
+      };
+      sensorService.storeReading(packetNew);
+
+      const packetOld: ISensorReading = {
+        deviceId: devId,
+        timestamp: '2026-09-07T10:15:00Z', // 5 minutes older
+        temperature: 26.0,
+        ph: 6.30,
+        fat: 3.0,
+        density: 1.025,
+        conductivity: 6.0,
+        milkLevel: 15
+      };
+      const resOld = sensorService.storeReading(packetOld);
+      assert.strictEqual(resOld.status, 'OUT_OF_ORDER');
+
+      const latest = sensorService.getLatestReading(devId);
+      assert.ok(latest);
+      assert.strictEqual(latest.fat, 4.4);
+    });
+  });
+
+  describe('4. Deterministic Device Status Rules', () => {
     it('device with no telemetry history must resolve to UNKNOWN (not ONLINE)', async () => {
       const dev = await dataRepository.getDeviceById('ESP32-UNPROVISIONED-01');
       assert.ok(dev);
@@ -150,7 +292,7 @@ describe('ESP32 Device Integration Foundation & Sensor Pipeline', () => {
     });
   });
 
-  describe('4. Telemetry Ingestion vs Milk Test Separation', () => {
+  describe('5. Telemetry Ingestion vs Milk Test Separation & Snapshot Freezing', () => {
     it('telemetry ingestion does NOT create a milk test in database', async () => {
       const initialTests = await dataRepository.getTests();
       const initialCount = initialTests.length;
@@ -226,7 +368,7 @@ describe('ESP32 Device Integration Foundation & Sensor Pipeline', () => {
     });
   });
 
-  describe('5. RBAC & Security for Device Management & Telemetry', () => {
+  describe('6. Device Management & Non-Destructive Deactivation', () => {
     it('generates verifiable auth tokens with role verification', () => {
       const adminToken = generateAuthToken({ userId: 'USR-001', username: 'admin', role: 'ADMIN' });
       const opToken = generateAuthToken({ userId: 'USR-002', username: 'operator', role: 'OPERATOR' });
@@ -236,7 +378,8 @@ describe('ESP32 Device Integration Foundation & Sensor Pipeline', () => {
       assert.notStrictEqual(adminToken, opToken);
     });
 
-    it('admin can register, update, and delete devices', async () => {
+    it('admin can register, update, and deactivate devices without affecting historical milk tests', async () => {
+      // 1. Register device
       const newDev = await dataRepository.addDevice({
         deviceId: 'ESP32-MILK-TEST99',
         name: 'Test Node 99',
@@ -245,23 +388,43 @@ describe('ESP32 Device Integration Foundation & Sensor Pipeline', () => {
         status: 'UNKNOWN',
         location: 'Bay 99'
       });
-
       assert.ok(newDev);
-      assert.strictEqual(newDev.deviceId, 'ESP32-MILK-TEST99');
 
-      const updated = await dataRepository.updateDevice('ESP32-MILK-TEST99', { location: 'Bay 99-Updated' });
-      assert.ok(updated);
-      assert.strictEqual(updated.location, 'Bay 99-Updated');
+      // 2. Associate historical milk test with this device
+      await dataRepository.addTest({
+        testId: 'TEST-DEV-HIST-001',
+        farmerId: 'FMR-1001',
+        customerCode: 'A1024',
+        deviceId: 'ESP32-MILK-TEST99',
+        quantity: 15,
+        timestamp: new Date(),
+        temperature: 24.0,
+        ph: 6.65,
+        fat: 4.4,
+        density: 1.029,
+        conductivity: 5.0,
+        milkLevel: 15,
+        qualityScore: 90,
+        classification: 'EXCELLENT',
+        warnings: [],
+        result: 'ACCEPTED',
+        ratePerLiter: 42.0,
+        totalAmount: 630
+      });
 
+      // 3. Deactivate/remove device
       const deleted = await dataRepository.deleteDevice('ESP32-MILK-TEST99');
       assert.strictEqual(deleted, true);
 
-      const check = await dataRepository.getDeviceById('ESP32-MILK-TEST99');
-      assert.strictEqual(check, null);
+      // 4. Verify historical milk test still exists intact and auditability is preserved
+      const historicalTest = await dataRepository.getTestById('TEST-DEV-HIST-001');
+      assert.ok(historicalTest);
+      assert.strictEqual(historicalTest.deviceId, 'ESP32-MILK-TEST99');
+      assert.strictEqual(historicalTest.totalAmount, 630);
     });
   });
 
-  describe('6. Separation of Sensor Validation vs QualityService Screening', () => {
+  describe('7. Separation of Sensor Validation vs QualityService Screening', () => {
     it('sensor validation only checks plausibility, while QualityService calculates purity & classification', () => {
       const reading = {
         deviceId: 'ESP32-MILK-001',

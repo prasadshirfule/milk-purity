@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Thermometer,
   Activity,
@@ -12,15 +12,18 @@ import {
   Radio,
   CheckCircle2,
   Clock,
-  Cpu
+  Cpu,
+  AlertCircle,
+  HelpCircle
 } from 'lucide-react';
-import { SensorReading, DeviceStatus } from '../../types';
+import { SensorReading, DeviceStatus, CalibrationStatus } from '../../types';
 
 interface LiveSensorPanelProps {
   reading: SensorReading | null;
   deviceId?: string;
   deviceName?: string;
   deviceStatus?: DeviceStatus;
+  calibrationStatus?: CalibrationStatus;
   isDemo?: boolean;
   onCaptureSnapshot?: (reading: SensorReading) => void;
   onSimulateTick?: () => void;
@@ -32,11 +35,48 @@ export const LiveSensorPanel: React.FC<LiveSensorPanelProps> = ({
   deviceId = 'ESP32-MILK-001',
   deviceName = 'Collection Station Analyzer',
   deviceStatus = 'ONLINE',
+  calibrationStatus = 'CALIBRATED',
   isDemo = false,
   onCaptureSnapshot,
   onSimulateTick,
   compact = false
 }) => {
+  const [dataAgeSec, setDataAgeSec] = useState<number | null>(null);
+  const [showStaleConfirm, setShowStaleConfirm] = useState<boolean>(false);
+
+  // Calculate dynamic data age
+  useEffect(() => {
+    const updateAge = () => {
+      if (reading?.timestamp) {
+        const time = new Date(reading.timestamp).getTime();
+        if (!isNaN(time)) {
+          const sec = Math.max(0, Math.floor((Date.now() - time) / 1000));
+          setDataAgeSec(sec);
+          return;
+        }
+      }
+      setDataAgeSec(null);
+    };
+
+    updateAge();
+    const timer = setInterval(updateAge, 1000);
+    return () => clearInterval(timer);
+  }, [reading]);
+
+  const isSimulated = isDemo || Boolean(reading?.isDemo);
+  const isStale = dataAgeSec !== null && dataAgeSec > 60;
+  const isLive = !isSimulated && deviceStatus === 'ONLINE' && !isStale && reading !== null;
+
+  // Format data age string
+  const formatAgeString = () => {
+    if (dataAgeSec === null || !reading) return 'No telemetry reported';
+    if (dataAgeSec < 5) return 'Just now (<5s)';
+    if (dataAgeSec < 60) return `${dataAgeSec}s ago`;
+    const mins = Math.floor(dataAgeSec / 60);
+    const remSec = dataAgeSec % 60;
+    return `${mins}m ${remSec}s ago`;
+  };
+
   // Helper to determine parameter health status
   const getParamStatus = (
     param: 'temp' | 'ph' | 'fat' | 'density' | 'cond' | 'level',
@@ -75,7 +115,6 @@ export const LiveSensorPanel: React.FC<LiveSensorPanelProps> = ({
     }
   };
 
-  const isSimulated = isDemo || Boolean(reading?.isDemo);
   const tempStatus = getParamStatus('temp', reading?.temperature);
   const phStatus = getParamStatus('ph', reading?.ph);
   const fatStatus = getParamStatus('fat', reading?.fat);
@@ -83,23 +122,35 @@ export const LiveSensorPanel: React.FC<LiveSensorPanelProps> = ({
   const condStatus = getParamStatus('cond', reading?.conductivity);
   const levelStatus = getParamStatus('level', reading?.milkLevel);
 
+  const handleCaptureClick = () => {
+    if (!reading || !onCaptureSnapshot) return;
+    if (isStale && !showStaleConfirm) {
+      setShowStaleConfirm(true);
+      return;
+    }
+    setShowStaleConfirm(false);
+    onCaptureSnapshot(reading);
+  };
+
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
       {/* Header Banner */}
-      <div className={`px-5 py-3 border-b flex flex-wrap items-center justify-between gap-3 ${
+      <div className={`px-5 py-3.5 border-b flex flex-wrap items-center justify-between gap-3 ${
         isSimulated
           ? 'bg-amber-500/10 border-amber-500/20'
-          : deviceStatus === 'ONLINE'
+          : isLive
           ? 'bg-emerald-500/10 border-emerald-500/20'
+          : isStale
+          ? 'bg-amber-950/30 border-amber-600/30'
           : deviceStatus === 'WARNING'
           ? 'bg-amber-500/10 border-amber-500/20'
           : 'bg-slate-800/40 border-slate-700/50'
       }`}>
         <div className="flex items-center gap-3">
-          <div className={`p-2 rounded-lg ${
+          <div className={`p-2.5 rounded-xl ${
             isSimulated
               ? 'bg-amber-500/20 text-amber-400'
-              : deviceStatus === 'ONLINE'
+              : isLive
               ? 'bg-emerald-500/20 text-emerald-400'
               : 'bg-slate-800 text-slate-400'
           }`}>
@@ -107,41 +158,49 @@ export const LiveSensorPanel: React.FC<LiveSensorPanelProps> = ({
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-slate-100 text-sm md:text-base">{deviceName}</h3>
+              <h3 className="font-bold text-slate-100 text-sm md:text-base tracking-tight">{deviceName}</h3>
               <span className="text-xs font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
                 {deviceId}
               </span>
             </div>
-            <p className="text-xs text-slate-400 flex items-center gap-1.5 mt-0.5">
-              <Clock className="w-3.5 h-3.5" />
-              {reading?.timestamp
-                ? `Last update: ${new Date(reading.timestamp).toLocaleTimeString()}`
-                : 'No telemetry reported'}
-            </p>
+            <div className="flex items-center gap-3 text-xs text-slate-400 mt-1">
+              <span className="flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-slate-500" />
+                {reading?.timestamp
+                  ? `${new Date(reading.timestamp).toLocaleTimeString()} (${formatAgeString()})`
+                  : 'No telemetry reported'}
+              </span>
+              {dataAgeSec !== null && isStale && (
+                <span className="text-[11px] font-bold text-amber-400 bg-amber-950/60 px-2 py-0.5 rounded border border-amber-500/30 flex items-center gap-1">
+                  <AlertTriangle className="w-3 h-3" />
+                  STALE SNAPSHOT (&gt;60s)
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Status Pill & Mode Badge */}
+        {/* Mode & Live Badges */}
         <div className="flex items-center gap-2">
           {isSimulated ? (
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm animate-pulse">
               <Radio className="w-3.5 h-3.5" />
               DEMO SENSOR DATA
             </span>
-          ) : deviceStatus === 'ONLINE' ? (
+          ) : isLive ? (
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-sm">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-              CONNECTED HARDWARE
+              LIVE TELEMETRY
             </span>
-          ) : deviceStatus === 'WARNING' ? (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-amber-500/20 text-amber-400 border border-amber-500/40">
-              <AlertTriangle className="w-3.5 h-3.5" />
-              WARNING / ATTENTION
+          ) : isStale ? (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-amber-950/50 text-amber-400 border border-amber-500/40">
+              <Clock className="w-3.5 h-3.5" />
+              STALE DATA
             </span>
           ) : deviceStatus === 'UNKNOWN' ? (
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-700/50 text-slate-400 border border-slate-600">
-              <Clock className="w-3.5 h-3.5" />
-              UNKNOWN (NO TELEMETRY)
+              <HelpCircle className="w-3.5 h-3.5" />
+              NO DATA RECEIVED
             </span>
           ) : (
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-red-500/20 text-red-400 border border-red-500/40">
@@ -151,6 +210,40 @@ export const LiveSensorPanel: React.FC<LiveSensorPanelProps> = ({
           )}
         </div>
       </div>
+
+      {/* Informational Calibration Warning */}
+      {(calibrationStatus === 'DUE' || calibrationStatus === 'OVERDUE') && (
+        <div className="px-5 py-2 bg-amber-500/10 border-b border-amber-500/20 flex items-center gap-2 text-xs text-amber-300">
+          <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+          <span>
+            <strong>Informational Notice:</strong> Sensor calibration is currently <span className="font-bold underline">{calibrationStatus}</span>. Physical recalibration recommended.
+          </span>
+        </div>
+      )}
+
+      {/* Stale Warning Action Bar if Operator clicked capture */}
+      {showStaleConfirm && (
+        <div className="p-3 bg-amber-950/80 border-b border-amber-500/40 flex items-center justify-between gap-3 text-xs text-amber-200">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+            <span>Telemetry reading is stale ({dataAgeSec}s old). Are you sure you want to capture this frozen snapshot?</span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => setShowStaleConfirm(false)}
+              className="px-2.5 py-1 text-xs rounded bg-slate-800 text-slate-300 hover:bg-slate-700"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleCaptureClick}
+              className="px-2.5 py-1 text-xs font-bold rounded bg-amber-500 text-slate-950 hover:bg-amber-400"
+            >
+              Confirm Stale Capture
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Grid of 6 Live Sensors */}
       <div className="p-5">
@@ -301,11 +394,15 @@ export const LiveSensorPanel: React.FC<LiveSensorPanelProps> = ({
               )}
               {onCaptureSnapshot && reading && (
                 <button
-                  onClick={() => onCaptureSnapshot(reading)}
-                  className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/30 transition-all flex items-center gap-1.5"
+                  onClick={handleCaptureClick}
+                  className={`px-4 py-1.5 text-xs font-semibold rounded-lg shadow-lg transition-all flex items-center gap-1.5 ${
+                    isStale
+                      ? 'bg-amber-600 hover:bg-amber-500 text-slate-950 shadow-amber-900/30'
+                      : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/30'
+                  }`}
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" />
-                  Capture Sensor Snapshot
+                  {isStale ? 'Capture Stale Snapshot' : 'Capture Sensor Snapshot'}
                 </button>
               )}
             </div>

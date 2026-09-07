@@ -171,19 +171,51 @@ export const ingestTelemetry = async (req: Request, res: Response): Promise<void
       return;
     }
 
+    // Device Authentication Check (Separated from operator auth)
+    const suppliedApiKey =
+      (req.headers['x-device-key'] as string) ||
+      (req.headers['x-api-key'] as string) ||
+      (req.query.apiKey as string) ||
+      req.body.apiKey;
+
+    if (device.apiKey && suppliedApiKey && suppliedApiKey !== device.apiKey) {
+      res.status(401).json({ success: false, error: 'Device authentication failed: invalid API key' });
+      return;
+    }
+
     const validation = sensorService.validateReading({ ...req.body, deviceId });
     if (!validation.valid || !validation.reading) {
       res.status(400).json({ success: false, error: validation.error });
       return;
     }
 
-    sensorService.storeReading(validation.reading);
+    const storeResult = sensorService.storeReading(validation.reading);
+
+    if (storeResult.status === 'OUT_OF_ORDER') {
+      res.status(409).json({
+        success: false,
+        error: storeResult.message,
+        currentSnapshot: storeResult.current
+      });
+      return;
+    }
+
+    if (storeResult.status === 'DUPLICATE') {
+      res.status(200).json({
+        success: true,
+        message: storeResult.message,
+        reading: storeResult.current,
+        isDuplicate: true
+      });
+      return;
+    }
+
     await dataRepository.updateDeviceHeartbeat(deviceId);
 
     res.status(200).json({
       success: true,
       message: 'Telemetry ingested successfully',
-      reading: validation.reading
+      reading: storeResult.current
     });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
@@ -200,13 +232,26 @@ export const getLatestTelemetry = async (req: Request, res: Response): Promise<v
     }
 
     const reading = sensorService.getLatestReading(deviceId);
-    const isLive = device.status === 'ONLINE';
+    let dataAgeSeconds: number | null = null;
+    let isStale = false;
+
+    if (reading && reading.timestamp) {
+      const readingTime = new Date(reading.timestamp).getTime();
+      if (!isNaN(readingTime)) {
+        dataAgeSeconds = Math.max(0, Math.round((Date.now() - readingTime) / 1000));
+        isStale = dataAgeSeconds > 60;
+      }
+    }
+
+    const isLive = device.status === 'ONLINE' && !isStale;
 
     res.json({
       success: true,
       data: reading,
       deviceStatus: device.status,
-      isLive
+      isLive,
+      isStale,
+      dataAgeSeconds
     });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
